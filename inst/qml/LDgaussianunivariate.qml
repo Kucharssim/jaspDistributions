@@ -99,7 +99,13 @@ Form
 		enabled					: mainWindow.dataAvailable
 	}
 
-	LD.LDEstimateParameters { enabled: mainWindow.dataAvailable }
+
+	LD.LDEstimateParameters
+	{
+		enabled			: mainWindow.dataAvailable
+		includeMCMC		: true
+		parameterLabels	: [mu.label, varValue.label]
+	}
 
 	LD.LDAssessFit{ enabled: mainWindow.dataAvailable; includeShapiroWilk: true }
 }

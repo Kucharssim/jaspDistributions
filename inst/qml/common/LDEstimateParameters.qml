@@ -18,13 +18,18 @@
 import QtQuick 2.8
 import QtQuick.Layouts 1.3
 import JASP.Controls 1.0
+import JASP.Widgets		1.0
 
 Section
 {
 	property bool includeSE: true
 	property bool includeCI: true
+	property bool includeMCMC: false
+	property var parameterLabels: []
 
 	title: enabled ? qsTr("Estimate Parameters") : qsTr("Estimate Parameters") + " - " + qsTr("[requires a loaded data set]")
+	columns: 2
+
 	CheckBox
 	{
 		name: "methodMLE";      label: qsTr("Maximum likelihood"); id: methodMLE
@@ -38,5 +43,68 @@ Section
 				PercentField{ name: "ciIntervalInterval"; label: ""; defaultValue: 95 }
 			}
 		}
+	}
+
+	CheckBox
+	{
+		name: "methodMCMC"; label: qsTr("Markov Chain Monte Carlo"); id: methodMCMC
+
+		Layout.columnSpan: 2
+		columns: 2
+		Group
+		{
+			title: qsTr("Priors")
+			Repeater
+			{
+				model: parameterLabels
+				TextField { label: modelData + " ~ "; name: "prior" + modelData }
+			}
+		}
+
+		Group
+		{
+			title: qsTr("MCMC parameters")
+			IntegerField
+			{
+				name: "noSamples"
+				label: qsTr("No. samples")
+				defaultValue: 2e3
+				min: 10
+				max: 1e9
+				fieldWidth: 100
+			}
+			IntegerField
+			{
+				name: "noBurnin"
+				label: qsTr("No. burnin samples")
+				defaultValue: 500
+				min: 1
+				max: 1e9
+				fieldWidth: 100
+			}
+			IntegerField
+			{
+				name: "noThinning"
+				label: qsTr("Thinning")
+				defaultValue: 1
+				min: 1
+				max: 1e9
+				fieldWidth: 100
+			}
+			IntegerField
+			{
+				name: "noChains"
+				label: qsTr("No. chains")
+				defaultValue: 3
+				min: 1
+				max: 50
+				fieldWidth: 100
+			}
+		}
+	}
+	HelpButton
+	{
+		toolTip: qsTr("Click to learn more about setting the priors.")
+		helpPage: "miscellaneous/priors"
 	}
 }
