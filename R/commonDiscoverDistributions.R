@@ -380,7 +380,7 @@
 .ldMLE <- function(jaspResults, variable, options, ready, errors, fillTable, analyticEstimates = NULL, ...){
   ready <- ready && isFALSE(errors)
   # override MLE option if any assess fit method is requested
-  options[["methodMLE"]] <- options[["methodMLE"]] || .ldAnyAssessFitRequested(options)
+  options[["methodMLE"]] <- isTRUE(options[["methodMLE"]]) || (.ldAnyAssessFitRequested(options) && isFALSE(options[["methodMCMC"]]) )
   # jump out if mle not desired
   if(!options[["methodMLE"]]) return()
 
@@ -610,7 +610,7 @@
 
 ### MCMC stuff ----
 .ldMCMC <- function(jaspResults, variable, options, ready, errors){
-  ready <- ready && isFALSE(errors)
+  ready <- ready && isFALSE(errors) && .ldCheckPriors(options)
 
   # jump out if mle not desired
   if(!isTRUE(options[["methodMCMC"]])) return()
@@ -629,9 +629,18 @@
   return()
 }
 
+.ldCheckPriors <- function(options) {
+  priorText <- character(length(options[['jagsParams']]))
+
+  for(i in seq_along(priorText)) {
+    priorText[i] <- trimws(options[[paste0("prior", i-1)]])
+  }
+
+  all(priorText != "")
+}
 
 .ldMCMCResults <- function(container, variable, options, ready) {
-  container[["table"]] <- createJaspTable(title = gettext("Estimated Parameters"))
+  container[["table"]] <- createJaspTable(title = gettext("Estimated Parameters"), position = 1)
   container[["table"]]$addColumnInfo(name = "parameter", type = "string", title = gettext("Parameter"))
   container[["table"]]$addColumnInfo(name = "mean",      type = "number", title = gettext("Mean"))
   container[["table"]]$addColumnInfo(name = "median",    type = "number", title = gettext("Median"))
@@ -703,6 +712,28 @@
 
   class(mcmc) <- "fitMCMC"
   return(mcmc)
+}
+
+coef.fitMCMC <- function(fit, options=NULL, n=NULL, includeSampleInfo = FALSE) {
+  if(is.null(n)) n <- dim(fit)[1]
+
+  original <- as.data.frame(apply(fit[1:n,,], 2, as.vector))
+
+  if(!is.null(options[["jagsBackTransformations"]])) {
+    transformed <- lapply(options[["jagsBackTransformations"]],
+                          function(trans) with(original, eval(str2lang(trans))))
+    transformed <- as.data.frame(transformed)
+
+  } else {
+    transformed <- original
+  }
+
+  if(includeSampleInfo) {
+    transformed$.draw <- seq_len(nrow(transformed))
+    transformed$.chain <- rep(seq_len(options[["noChains"]]), each=n)
+  }
+
+  return(transformed)
 }
 
 .ldMCMCmodel <- function(options) {
@@ -823,7 +854,55 @@
 }
 
 .ldQQPlot.fitMCMC <- function(fit, variable, options) {
+  parameters <- coef(fit, options)
+  estParameters <- as.list(colMeans(parameters))
 
+  yBreaks <- jaspGraphs::getPrettyAxisBreaks(variable)
+  yLabs   <- jaspGraphs::axesLabeller(yBreaks)
+  yRange  <- range(variable)
+
+  # compute slope and intercept of qq line
+  args <- estParameters
+  args[["p"]] <- c(.25, .75)
+  theoretical <- do.call(options[['qFun']], args)
+  sample <- stats::quantile(variable, c(.25, .75))
+  slope <- diff(sample) / diff(theoretical)
+  intercept <- sample[1L] - slope*theoretical[1L]
+
+
+  quantiles <- stats::ppoints(length(variable))
+  theoretical <- matrix(NA, nrow = nrow(parameters), ncol = length(quantiles))
+  for(i in seq_len(nrow(parameters))) {
+    args <- as.list(parameters[i,])
+    args[["p"]] <- quantiles
+
+    theoretical[i,] <- do.call(options[['qFun']], args)
+  }
+
+  alpha <- 1-options[["credibleIntervalInterval"]]
+  ciLevel <- c(alpha/2, 1-alpha/2)
+  errorBarDf <- data.frame(
+    y = sort(variable),
+    lower = apply(theoretical, 2, quantile, ciLevel[1]),
+    upper = apply(theoretical, 2, quantile, ciLevel[2])
+  )
+
+  p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(sample = variable)) +
+    ggplot2::geom_abline(slope=slope, intercept=intercept, col = "darkred", size = 1) +
+    ggplot2::geom_errorbarh(data = errorBarDf, mapping = ggplot2::aes(y=y,xmin=lower,xmax=upper)) +
+    ggplot2::stat_qq(distribution = options[['qFun']], dparams = estParameters, shape = 21, fill = "grey", size = 3) +
+    ggplot2::scale_y_continuous(name = gettext("Sample"), breaks = yBreaks, labels = yLabs, limits = yRange)
+
+  errorBars <- ggplot2::layer_data(p, 2)
+  xBreaks <- jaspGraphs::getPrettyAxisBreaks(c(errorBars$xmin, errorBars$xmax))
+  xLabs   <- jaspGraphs::axesLabeller(xBreaks)
+  xRange  <- range(c(errorBars$xmin, errorBars$xmax))
+
+  p <- p + ggplot2::scale_x_continuous(name = gettext("Theoretical"), breaks = xBreaks, labels = xLabs, limits = xRange)
+
+  p <- jaspGraphs::themeJasp(p)
+
+  return(p)
 }
 
 #### Pdf plot -----
@@ -848,6 +927,26 @@
   return(p)
 }
 
+
+.ldEstPDFPlot.fitMCMC <- function(fit, variable, options){
+  parameters <- coef(fit, options, n = 10)
+
+  p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(x = variable)) +
+    ggplot2::geom_histogram(ggplot2::aes(y = ..density..), fill = "grey", col = "black") +
+    ggplot2::geom_rug() +
+    ggplot2::scale_x_continuous(limits = range(variable),
+                                breaks = pretty(range(variable))) +
+    ggplot2::ylab(gettext("Density")) + ggplot2::xlab(options[['variable']])
+
+  for(i in seq_len(nrow(parameters))) {
+    args <- as.list(parameters[i,])
+    p <- p +
+      ggplot2::geom_function(fun = options[['pdfFun']], args = args, size = 1, alpha = 0.5)
+  }
+  p <- jaspGraphs::themeJasp(p)
+
+  return(p)
+}
 
 #### Pmf plot ----
 .ldEstPMFPlot <- function(fit, variable, options) {

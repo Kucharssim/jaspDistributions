@@ -17,7 +17,6 @@
 
 LDgaussianunivariate <- function(jaspResults, dataset, options, state=NULL){
   options <- .recodeOptionsLDGaussianUnivariate(options)
-  save(options, file = "~/Downloads/opts.Rdata")
 
   #### Show distribution section ----
   .ldShowDistribution(jaspResults = jaspResults, options = options, name = gettext("normal distribution"),
@@ -85,7 +84,11 @@ LDgaussianunivariate <- function(jaspResults, dataset, options, state=NULL){
   options[['jagsDistribution']] <- "dnorm(mu,tau)"
   options[['jagsParams']] <- c("mu", options[['parametrization']])
   options[['jagsTransformations']] <- c(sigma2 = "tau <- 1/sigma2\n", sigma = "tau <- 1/pow(sigma,2)\n", tau = "", kappa = "tau <- pow(kappa,2)\n")
-
+  options[['jagsBackTransformations']] <- switch(options[['parametrization']],
+                                                 sigma2 = c(mean = "mu", sd = "sqrt(sigma2)"),
+                                                 sigma  = c(mean = "mu", sd = "sigma"),
+                                                 tau    = c(mean = "mu", sd = "1/sqrt(tau)"),
+                                                 kappa  = c(mean = "mu", sd = "1/kappa"))
   options[['outputParameterLabels']] <- switch(options[['parametrization']],
                                                sigma2 = c(mu = "\u03BC", sigma2 = "\u03C3\u00B2"),
                                                sigma  = c(mu = "\u03BC", sigma2 = "\u03C3"),
