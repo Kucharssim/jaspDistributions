@@ -613,7 +613,7 @@
   ready <- ready && isFALSE(errors)
 
   # jump out if mle not desired
-  if(!options[["methodMCMC"]]) return()
+  if(!isTRUE(options[["methodMCMC"]])) return()
 
   mcmcContainer <- .ldGetFitContainer(jaspResults, options, "mcmcContainer", gettext("Markov Chain Monte Carlo"), 8, errors)
 
@@ -622,9 +622,11 @@
 
   # fit assessment
   mcmcFitContainer    <- .ldGetFitContainer(mcmcContainer, options, "mleFitAssessment", gettext("Fit Assessment"), 2)
-  return()
+
   # fit plots
-  .ldFitPlots(mleFitContainer, mleResults$fitdist$estimate, options, variable, ready)
+  .ldFitPlots(mcmcFitContainer, mcmcResults, options, variable, ready)
+
+  return()
 }
 
 
@@ -746,63 +748,40 @@
 }
 
 
-### Fill plots----
-.ldFitPlots <- function(fitContainer, fit, options, variable, ready){
+### Fit plots----
+.ldFitPlots <- function(container, fit, options, variable, ready){
+  plotTypes <- c("estPDF", "estPMF", "qqplot", "estCDF", "ppplot")
 
-  # if(is.null(fitContainer[['estPDF']]) && isTRUE(options$estPDF)){
-  #   pdfplot <- createJaspPlot(title = gettext("Histogram vs. Theoretical PDF"))
-  #   pdfplot$dependOn(c("estPDF"))
-  #   pdfplot$position <- 2
-  #   fitContainer[['estPDF']] <- pdfplot
-  #
-  #   if(ready && !fitContainer$getError())
-  #     .ldFillEstPDFPlot(pdfplot, estimates, options, variable)
-  # }
-  #
-  # if(is.null(fitContainer[['estPMF']]) && isTRUE(options$estPMF)){
-  #   pmfplot <- createJaspPlot(title = gettext("Histogram vs. Theoretical PMF"))
-  #   pmfplot$dependOn(c("estPMF"))
-  #   pmfplot$position <- 2
-  #   fitContainer[['estPMF']] <- pmfplot
-  #
-  #   if(ready && !fitContainer$getError())
-  #     .ldFillEstPMFPlot(pmfplot, estimates, options, variable)
-  # }
+  for(plotType in plotTypes) {
+    if(is.null(container[[plotType]]) && isTRUE(options[[plotType]])) {
+      title <- switch(plotType,
+                      estPDF = gettext("Histogram vs. Theoretical PDF"),
+                      estPMF = gettext("Histogram vs. Theoretical PMF"),
+                      qqplot = gettext("Q-Q plot"),
+                      estCDF = gettext("Empirical vs. Theoretical CDF"),
+                      ppplot = gettext("P-P plot"))
+      position <- which(plotType == plotTypes) + 1
+      jaspPlot <- createJaspPlot(title = title, position = position, dependencies = plotType)
 
-  if(is.null(fitContainer[['qqplot']]) && options$qqplot){
-    qqplot <- createJaspPlot(title = gettext("Q-Q plot"))
-    qqplot$dependOn(c("qqplot"))
-    qqplot$position <- 3
-    fitContainer[['qqplot']] <- qqplot
+      container[[plotType]] <- jaspPlot
 
-    if(ready && !fitContainer$getError())
-      qqplot$plotObject <- .ldQQPlot(fit, variable, options)
-      #.ldFillQQPlot(qqplot, estimates, options, variable)
+      if(ready && !container$getError()) {
+        plotFunction <- switch(plotType,
+                               estPDF = ".ldEstPDFPlot",
+                               estPMF = ".ldEstPMFPlot",
+                               qqplot = ".ldQQPlot",
+                               estCDF = ".ldEstCDFPlot",
+                               ppplot = ".ldPPPlot")
+        args <- list(fit = fit, variable = variable, options = options)
+        jaspPlot$plotObject <- do.call(plotFunction, args)
+      }
+    }
   }
-
-  # if(is.null(fitContainer[['estCDF']]) && options$estCDF){
-  #   cdfplot <- createJaspPlot(title = gettext("Empirical vs. Theoretical CDF"))
-  #   cdfplot$dependOn(c("estCDF"))
-  #   cdfplot$position <- 4
-  #   fitContainer[['estCDF']] <- cdfplot
-  #
-  #   if(ready && !fitContainer$getError())
-  #     .ldFillEstCDFPlot(cdfplot, estimates, options, variable)
-  # }
-  #
-  # if(is.null(fitContainer[['ppplot']]) && options$ppplot){
-  #   ppplot <- createJaspPlot(title = gettext("P-P plot"))
-  #   ppplot$dependOn(c("ppplot"))
-  #   ppplot$position <-5
-  #   fitContainer[['ppplot']] <- ppplot
-  #
-  #   if(ready && !fitContainer$getError())
-  #     .ldFillPPPlot(ppplot, estimates, options, variable)
-  # }
 
   return()
 }
 
+#### QQ plot ----
 .ldQQPlot <- function(fit, variable, options) {
   UseMethod(".ldQQPlot", fit)
 }
@@ -847,42 +826,15 @@
 
 }
 
-.ldFillQQPlot <- function(qqplot, estParameters, options, variable){
-  estParameters <- as.list(estParameters)
-  yBreaks <- jaspGraphs::getPrettyAxisBreaks(variable)
-  yLabs   <- jaspGraphs::axesLabeller(yBreaks)
-  yRange  <- range(variable)
-
-  # compute slope and intercept of qq line
-  args <- estParameters
-  args[["p"]] <- c(.25, .75)
-  theoretical <- do.call(options[['qFun']], args)
-  sample <- stats::quantile(variable, c(.25, .75))
-  slope <- diff(sample) / diff(theoretical)
-  intercept <- sample[1L] - slope*theoretical[1L]
-
-
-  p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(sample = variable)) +
-    #ggplot2::stat_qq_line(distribution = options[['qFun']], dparams = estParameters, col = "darkred", size = 1) +
-    ggplot2::geom_abline(slope=slope, intercept=intercept, col = "darkred", size = 1) +
-    ggplot2::stat_qq(distribution = options[['qFun']], dparams = estParameters, shape = 21, fill = "grey", size = 3) +
-    ggplot2::scale_y_continuous(name = gettext("Sample"), breaks = yBreaks, labels = yLabs, limits = yRange)
-
-  points <- ggplot2::layer_data(p, 2)
-
-  xBreaks <- jaspGraphs::getPrettyAxisBreaks(points$x)
-  xLabs   <- jaspGraphs::axesLabeller(xBreaks)
-  xRange  <- range(points$x)
-
-  p <- p + ggplot2::scale_x_continuous(name = gettext("Theoretical"), breaks = xBreaks, labels = xLabs, limits = xRange)
-  p <- jaspGraphs::themeJasp(p)
-
-  qqplot$plotObject <- p
-
-  return()
+#### Pdf plot -----
+.ldEstPDFPlot <- function(fit, variable, options) {
+  UseMethod(".ldEstPDFPlot", fit)
 }
 
-.ldFillEstPDFPlot <- function(pdfplot, estParameters, options, variable){
+.ldEstPDFPlot.fitMLE <- function(fit, variable, options){
+  estParameters <- fit$fitdist$estimate
+  estParameters <- c(estParameters, options$fix.pars)
+
   p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(x = variable)) +
     ggplot2::geom_histogram(ggplot2::aes(y = ..density..), fill = "grey", col = "black") +
     ggplot2::stat_function(fun = options[['pdfFun']], args = as.list(estParameters), size = 1.5) +
@@ -893,17 +845,23 @@
 
   p <- jaspGraphs::themeJasp(p)
 
-  pdfplot$plotObject <- p
-
-  return()
+  return(p)
 }
 
-.ldFillEstPMFPlot <- function(pmfplot, estimates, options, variable){
+
+#### Pmf plot ----
+.ldEstPMFPlot <- function(fit, variable, options) {
+  UseMethod(".ldEstPMFPlot", fit)
+}
+
+.ldEstPMFPlot.fitMLE <- function(fit, variable, options){
+  estParameters <- fit$fitdist$estimate
+  estParameters <- c(estParameters, options$fix.pars)
   range <- range(variable)
 
   mids <- range[1]:range[2]
   counts <- sapply(mids, function(i) sum(variable == i))
-  dat  <- data.frame(counts = counts, mids = mids, pmf = do.call(options$pdfFun, c(list(x = mids), estimates)))
+  dat  <- data.frame(counts = counts, mids = mids, pmf = do.call(options$pdfFun, c(list(x = mids), estParameters)))
 
   xBreaks <- unique(floor(jaspGraphs::getPrettyAxisBreaks(mids)))
   xLabs   <- jaspGraphs::axesLabeller(xBreaks)
@@ -919,12 +877,17 @@
 
   p <- jaspGraphs::themeJasp(p)
 
-  pmfplot$plotObject <- p
-
-  return()
+  return(p)
 }
 
-.ldFillPPPlot <- function(ppplot, estParameters, options, variable){
+#### PP plot ----
+.ldPPPlot <- function(fit, variable, options) {
+  UseMethod(".ldPPPlot", fit)
+}
+
+.ldPPPlot.fitMLE <- function(fit, variable, options){
+  estParameters <- fit$fitdist$estimate
+  estParameters <- c(estParameters, options$fix.pars)
   n <- length(variable)
   ObservedProp <- (1:n)/n - 0.5/n
 
@@ -941,12 +904,18 @@
 
   p <- jaspGraphs::themeJasp(p)
 
-  ppplot$plotObject <- p
-
-  return()
+  return(p)
 }
 
-.ldFillEstCDFPlot <- function(cdfplot, estParameters, options, variable){
+#### Cdf plot ----
+.ldEstCDFPlot <- function(fit, variable, options) {
+  UseMethod(".ldEstCDFPlot", fit)
+}
+
+.ldEstCDFPlot.fitMLE <- function(fit, variable, options){
+  estParameters <- fit$fitdist$estimate
+  estParameters <- c(estParameters, options$fix.pars)
+
   p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(x = variable)) +
     ggplot2::stat_ecdf(geom = "step") +
     ggplot2::geom_rug() +
@@ -958,9 +927,7 @@
 
   p <- jaspGraphs::themeJasp(p)
 
-  cdfplot$plotObject <- p
-
-  return()
+  return(p)
 }
 
 #### Plots ----

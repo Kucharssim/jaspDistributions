@@ -1,4 +1,4 @@
-context("Discover Distributions - Binomial")
+context("Discover Distributions - Beta binomial")
 
 options <- jaspTools::analysisOptions("LDbetaBinomial")
 options$chiSquare <- TRUE
