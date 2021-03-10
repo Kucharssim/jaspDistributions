@@ -394,6 +394,7 @@
     mleResults <- analyticEstimates
     mleEstimatesTable  <- .ldEstimatesTable(mleContainer, options, mleResults$ci.possible, mleResults$se.possible, "methodAnalyticMLE")
   }
+  class(mleResults) <- "fitMLE"
   fillTable(mleEstimatesTable, mleResults, options, ready, ...)
 
   # fit assessment
@@ -404,7 +405,7 @@
   mleFitStatisticsResults <- .ldFitStatisticsResults(mleContainer, mleResults$fitdist, variable, options, ready)
   .ldFillFitStatisticsTable(mleFitStatistics, mleFitStatisticsResults, options, ready)
   # fit plots
-  .ldFitPlots(mleFitContainer, mleResults$fitdist$estimate, options, variable, ready)
+  .ldFitPlots(mleFitContainer, mleResults, options, variable, ready)
 }
 
 .ldAnyAssessFitRequested <- function(options) {
@@ -513,6 +514,7 @@
   }
   return(res)
 }
+
 #### Fit assessment ----
 .ldFitStatisticsTable <- function(fitContainer, options, method){
   if(!is.null(fitContainer[['fitStatisticsTable']])) return()
@@ -605,28 +607,167 @@
 
   return()
 }
+
+### MCMC stuff ----
+.ldMCMC <- function(jaspResults, variable, options, ready, errors){
+  ready <- ready && isFALSE(errors)
+
+  # jump out if mle not desired
+  if(!options[["methodMCMC"]]) return()
+
+  mcmcContainer <- .ldGetFitContainer(jaspResults, options, "mcmcContainer", gettext("Markov Chain Monte Carlo"), 8, errors)
+
+  # parameter estimates
+  mcmcResults   <- .ldMCMCResults(mcmcContainer, variable, options, ready)
+
+  # fit assessment
+  mcmcFitContainer    <- .ldGetFitContainer(mcmcContainer, options, "mleFitAssessment", gettext("Fit Assessment"), 2)
+  return()
+  # fit plots
+  .ldFitPlots(mleFitContainer, mleResults$fitdist$estimate, options, variable, ready)
+}
+
+
+.ldMCMCResults <- function(container, variable, options, ready) {
+  container[["table"]] <- createJaspTable(title = gettext("Estimated Parameters"))
+  container[["table"]]$addColumnInfo(name = "parameter", type = "string", title = gettext("Parameter"))
+  container[["table"]]$addColumnInfo(name = "mean",      type = "number", title = gettext("Mean"))
+  container[["table"]]$addColumnInfo(name = "median",    type = "number", title = gettext("Median"))
+  container[["table"]]$addColumnInfo(name = "sd",        type = "number", title = gettext("SD"))
+  container[["table"]]$addColumnInfo(name = "lower",     type = "number", title = gettext("Lower"), overtitle = gettextf("%s%% Credible Interval", 100*options[["credibleIntervalInterval"]]))
+  container[["table"]]$addColumnInfo(name = "upper",     type = "number", title = gettext("Upper"), overtitle = gettextf("%s%% Credible Interval", 100*options[["credibleIntervalInterval"]]))
+  container[["table"]]$addColumnInfo(name = "rhat",      type = "number", title = gettext("R-hat"))
+  container[["table"]]$addColumnInfo(name = "essBulk",   type = "number", title = gettext("Bulk"),  overtitle = gettext("Effective Sample Size"))
+  container[["table"]]$addColumnInfo(name = "essTail",   type = "number", title = gettext("Tail"),  overtitle = gettext("Effective Sample Size"))
+
+  if(!ready) return()
+
+  dataList  <- list(x = variable, N = length(variable))
+
+  # use the same setup as jaspJags
+  mcmc <- try({
+    # get the model and write it to a file
+    modelText <- .ldMCMCmodel(options)
+    modelLocation <- .fromRCPP(".requestTempFileNameNative", ".txt")
+    modelFile <- file.path(modelLocation$root, modelLocation$relativePath)
+    fileConn <- file(modelFile)
+    writeLines(modelText, fileConn)
+    close(fileConn)
+
+    # compile model
+    model <- rjags::jags.model(
+      file     = modelFile,
+      data     = dataList,
+      n.chains = options[["noChains"]],
+      n.adapt  = 0L
+    )
+
+    # burnin
+    rjags::adapt(
+      object         = model,
+      n.iter         = options[["noBurnin"]],
+      by             = 0L,
+      progress.bar   = "none",
+      end.adaptation = TRUE
+    )
+
+    # sampling
+    samples <- rjags::coda.samples(
+      model = model,
+      variable.names = options[["jagsParams"]],
+      n.iter = options[["noSamples"]],
+      thins = options[["noThinning"]],
+      by = 0L,
+      progress.bar = "none"
+    )
+
+    as.array(samples, drop = FALSE) # dims: (iterations, parameters, chains)
+  })
+
+  alpha <- 1-options[["credibleIntervalInterval"]]
+  ciLevel <- c(alpha/2, 1-alpha/2)
+
+  container[["table"]]$setData(list(
+    parameter = options[['outputParameterLabels']],
+    mean      = apply(mcmc, 2, mean),
+    median    = apply(mcmc, 2, median),
+    sd        = apply(mcmc, 2, sd),
+    lower     = apply(mcmc, 2, quantile, ciLevel[1]),
+    upper     = apply(mcmc, 2, quantile, ciLevel[2]),
+    rhat      = apply(mcmc, 2, rstan::Rhat),
+    essBulk   = apply(mcmc, 2, rstan::ess_bulk),
+    essTail   = apply(mcmc, 2, rstan::ess_tail)
+  ))
+
+  class(mcmc) <- "fitMCMC"
+  return(mcmc)
+}
+
+.ldMCMCmodel <- function(options) {
+  if(!is.null(options[["jagsModel"]])) return("jagsModel")
+
+  template <-
+"model{
+  for(i in 1:N) {
+    x[i] ~ %1$s # likelihood
+  }
+
+  # transformations
+  %2$s
+  # priors
+  %3$s
+}
+"
+
+  if(!is.null(options[['parametrization']])) {
+    transformations <- options[['jagsTransformations']][[options[['parametrization']]]]
+  } else {
+    transformations <- "\n"
+  }
+
+  model <- sprintf(template,
+                   options[["jagsDistribution"]],
+                   transformations,
+                   .ldGetJagsPriors(options)
+                   )
+
+  return(model)
+}
+
+.ldGetJagsPriors <- function(options) {
+  priors <- character(length(options[['jagsParams']]))
+
+  for(i in seq_along(priors)) {
+    priorText <- options[[paste0("prior", i-1)]]
+    priors[i] <- sprintf("%1$s ~ %2$s", options[['jagsParams']][i], priorText)
+  }
+
+  return(paste(priors, collapse = "\n  "))
+}
+
+
 ### Fill plots----
-.ldFitPlots <- function(fitContainer, estimates, options, variable, ready){
-  estimates <- c(estimates, options$fix.pars)
-  if(is.null(fitContainer[['estPDF']]) && isTRUE(options$estPDF)){
-    pdfplot <- createJaspPlot(title = gettext("Histogram vs. Theoretical PDF"))
-    pdfplot$dependOn(c("estPDF"))
-    pdfplot$position <- 2
-    fitContainer[['estPDF']] <- pdfplot
+.ldFitPlots <- function(fitContainer, fit, options, variable, ready){
 
-    if(ready && !fitContainer$getError())
-      .ldFillEstPDFPlot(pdfplot, estimates, options, variable)
-  }
-
-  if(is.null(fitContainer[['estPMF']]) && isTRUE(options$estPMF)){
-    pmfplot <- createJaspPlot(title = gettext("Histogram vs. Theoretical PMF"))
-    pmfplot$dependOn(c("estPMF"))
-    pmfplot$position <- 2
-    fitContainer[['estPMF']] <- pmfplot
-
-    if(ready && !fitContainer$getError())
-      .ldFillEstPMFPlot(pmfplot, estimates, options, variable)
-  }
+  # if(is.null(fitContainer[['estPDF']]) && isTRUE(options$estPDF)){
+  #   pdfplot <- createJaspPlot(title = gettext("Histogram vs. Theoretical PDF"))
+  #   pdfplot$dependOn(c("estPDF"))
+  #   pdfplot$position <- 2
+  #   fitContainer[['estPDF']] <- pdfplot
+  #
+  #   if(ready && !fitContainer$getError())
+  #     .ldFillEstPDFPlot(pdfplot, estimates, options, variable)
+  # }
+  #
+  # if(is.null(fitContainer[['estPMF']]) && isTRUE(options$estPMF)){
+  #   pmfplot <- createJaspPlot(title = gettext("Histogram vs. Theoretical PMF"))
+  #   pmfplot$dependOn(c("estPMF"))
+  #   pmfplot$position <- 2
+  #   fitContainer[['estPMF']] <- pmfplot
+  #
+  #   if(ready && !fitContainer$getError())
+  #     .ldFillEstPMFPlot(pmfplot, estimates, options, variable)
+  # }
 
   if(is.null(fitContainer[['qqplot']]) && options$qqplot){
     qqplot <- createJaspPlot(title = gettext("Q-Q plot"))
@@ -635,30 +776,75 @@
     fitContainer[['qqplot']] <- qqplot
 
     if(ready && !fitContainer$getError())
-      .ldFillQQPlot(qqplot, estimates, options, variable)
+      qqplot$plotObject <- .ldQQPlot(fit, variable, options)
+      #.ldFillQQPlot(qqplot, estimates, options, variable)
   }
 
-  if(is.null(fitContainer[['estCDF']]) && options$estCDF){
-    cdfplot <- createJaspPlot(title = gettext("Empirical vs. Theoretical CDF"))
-    cdfplot$dependOn(c("estCDF"))
-    cdfplot$position <- 4
-    fitContainer[['estCDF']] <- cdfplot
-
-    if(ready && !fitContainer$getError())
-      .ldFillEstCDFPlot(cdfplot, estimates, options, variable)
-  }
-
-  if(is.null(fitContainer[['ppplot']]) && options$ppplot){
-    ppplot <- createJaspPlot(title = gettext("P-P plot"))
-    ppplot$dependOn(c("ppplot"))
-    ppplot$position <-5
-    fitContainer[['ppplot']] <- ppplot
-
-    if(ready && !fitContainer$getError())
-      .ldFillPPPlot(ppplot, estimates, options, variable)
-  }
+  # if(is.null(fitContainer[['estCDF']]) && options$estCDF){
+  #   cdfplot <- createJaspPlot(title = gettext("Empirical vs. Theoretical CDF"))
+  #   cdfplot$dependOn(c("estCDF"))
+  #   cdfplot$position <- 4
+  #   fitContainer[['estCDF']] <- cdfplot
+  #
+  #   if(ready && !fitContainer$getError())
+  #     .ldFillEstCDFPlot(cdfplot, estimates, options, variable)
+  # }
+  #
+  # if(is.null(fitContainer[['ppplot']]) && options$ppplot){
+  #   ppplot <- createJaspPlot(title = gettext("P-P plot"))
+  #   ppplot$dependOn(c("ppplot"))
+  #   ppplot$position <-5
+  #   fitContainer[['ppplot']] <- ppplot
+  #
+  #   if(ready && !fitContainer$getError())
+  #     .ldFillPPPlot(ppplot, estimates, options, variable)
+  # }
 
   return()
+}
+
+.ldQQPlot <- function(fit, variable, options) {
+  UseMethod(".ldQQPlot", fit)
+}
+
+.ldQQPlot.fitMLE <- function(fit, variable, options) {
+  estParameters <- fit$fitdist$estimate
+  estParameters <- c(estParameters, options$fix.pars)
+  estParameters <- as.list(estParameters)
+
+  yBreaks <- jaspGraphs::getPrettyAxisBreaks(variable)
+  yLabs   <- jaspGraphs::axesLabeller(yBreaks)
+  yRange  <- range(variable)
+
+  # compute slope and intercept of qq line
+  args <- estParameters
+  args[["p"]] <- c(.25, .75)
+  theoretical <- do.call(options[['qFun']], args)
+  sample <- stats::quantile(variable, c(.25, .75))
+  slope <- diff(sample) / diff(theoretical)
+  intercept <- sample[1L] - slope*theoretical[1L]
+
+
+  p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(sample = variable)) +
+    #ggplot2::stat_qq_line(distribution = options[['qFun']], dparams = estParameters, col = "darkred", size = 1) +
+    ggplot2::geom_abline(slope=slope, intercept=intercept, col = "darkred", size = 1) +
+    ggplot2::stat_qq(distribution = options[['qFun']], dparams = estParameters, shape = 21, fill = "grey", size = 3) +
+    ggplot2::scale_y_continuous(name = gettext("Sample"), breaks = yBreaks, labels = yLabs, limits = yRange)
+
+  points <- ggplot2::layer_data(p, 2)
+
+  xBreaks <- jaspGraphs::getPrettyAxisBreaks(points$x)
+  xLabs   <- jaspGraphs::axesLabeller(xBreaks)
+  xRange  <- range(points$x)
+
+  p <- p + ggplot2::scale_x_continuous(name = gettext("Theoretical"), breaks = xBreaks, labels = xLabs, limits = xRange)
+  p <- jaspGraphs::themeJasp(p)
+
+  return(p)
+}
+
+.ldQQPlot.fitMCMC <- function(fit, variable, options) {
+
 }
 
 .ldFillQQPlot <- function(qqplot, estParameters, options, variable){

@@ -57,13 +57,19 @@ Section
 			Repeater
 			{
 				model: parameterLabels
-				TextField { label: modelData + " ~ "; name: "prior" + modelData }
+				TextField { label: modelData + " ~ "; name: "prior" + index }
 			}
 		}
 
 		Group
 		{
-			title: qsTr("MCMC parameters")
+			title: qsTr("Options")
+			PercentField { name: "credibleIntervalInterval"; label: qsTr("Credible interval"); defaultValue: 95 }
+		}
+
+		Group
+		{
+			title: qsTr("MCMC options")
 			IntegerField
 			{
 				name: "noSamples"
