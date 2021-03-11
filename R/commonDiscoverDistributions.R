@@ -870,11 +870,11 @@ coef.fitMCMC <- function(fit, options=NULL, n=NULL, includeSampleInfo = FALSE) {
   intercept <- sample[1L] - slope*theoretical[1L]
 
 
-  quantiles <- stats::ppoints(length(variable))
-  theoretical <- matrix(NA, nrow = nrow(parameters), ncol = length(quantiles))
+  percentiles <- stats::ppoints(length(variable))
+  theoretical <- matrix(NA, nrow = nrow(parameters), ncol = length(percentiles))
   for(i in seq_len(nrow(parameters))) {
     args <- as.list(parameters[i,])
-    args[["p"]] <- quantiles
+    args[["p"]] <- percentiles
 
     theoretical[i,] <- do.call(options[['qFun']], args)
   }
@@ -929,7 +929,7 @@ coef.fitMCMC <- function(fit, options=NULL, n=NULL, includeSampleInfo = FALSE) {
 
 
 .ldEstPDFPlot.fitMCMC <- function(fit, variable, options){
-  parameters <- coef(fit, options, n = 10)
+  parameters <- coef(fit, options, n = 20)
 
   p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(x = variable)) +
     ggplot2::geom_histogram(ggplot2::aes(y = ..density..), fill = "grey", col = "black") +
@@ -941,7 +941,7 @@ coef.fitMCMC <- function(fit, options=NULL, n=NULL, includeSampleInfo = FALSE) {
   for(i in seq_len(nrow(parameters))) {
     args <- as.list(parameters[i,])
     p <- p +
-      ggplot2::geom_function(fun = options[['pdfFun']], args = args, size = 1, alpha = 0.5)
+      ggplot2::geom_function(fun = options[['pdfFun']], args = args, size = 1, alpha = 0.1)
   }
   p <- jaspGraphs::themeJasp(p)
 
@@ -986,7 +986,7 @@ coef.fitMCMC <- function(fit, options=NULL, n=NULL, includeSampleInfo = FALSE) {
 
 .ldPPPlot.fitMLE <- function(fit, variable, options){
   estParameters <- fit$fitdist$estimate
-  estParameters <- c(estParameters, options$fix.pars)
+  estParameters <- c(estParameters, options[["fix.pars"]])
   n <- length(variable)
   ObservedProp <- (1:n)/n - 0.5/n
 
@@ -1006,6 +1006,49 @@ coef.fitMCMC <- function(fit, options=NULL, n=NULL, includeSampleInfo = FALSE) {
   return(p)
 }
 
+.ldPPPlot.fitMCMC <- function(fit, variable, options){
+  variable <- sort(variable)
+  parameters <- coef(fit, options)
+  estParameters <- c(colMeans(parameters), options[["fix.pars"]])
+
+  # for points
+  n <- length(variable)
+  ObservedProp <- (1:n)/n - 0.5/n
+
+  args <- as.list(estParameters)
+  args[['q']] <- variable
+  TheoreticalProp <- do.call(options[['cdfFun']], args)
+
+  # for CIs
+  theoretical <- matrix(NA, nrow = nrow(parameters), ncol = length(ObservedProp))
+  for(i in seq_len(nrow(parameters))) {
+    args <- as.list(parameters[i,])
+    args[['q']] <- variable
+
+    theoretical[i,] <- do.call(options[['cdfFun']], args)
+  }
+
+  alpha <- 1-options[["credibleIntervalInterval"]]
+  ciLevel <- c(alpha/2, 1-alpha/2)
+  errorBarDf <- data.frame(
+    y = ObservedProp,
+    lower = apply(theoretical, 2, quantile, ciLevel[1]),
+    upper = apply(theoretical, 2, quantile, ciLevel[2])
+  )
+
+  # plot
+  p <- ggplot2::ggplot(data = data.frame(TheoreticalProp = TheoreticalProp, ObservedProp = ObservedProp)) +
+    ggplot2::geom_abline(slope = 1, intercept = 0, col = "darkred", size = 1) +
+    ggplot2::geom_errorbarh(data=errorBarDf, mapping = ggplot2::aes(y=y,xmin=lower,xmax=upper)) +
+    jaspGraphs::geom_point(ggplot2::aes(x = TheoreticalProp, y = ObservedProp)) +
+    ggplot2::xlab(gettext("Theoretical")) + ggplot2::ylab(gettext("Sample")) +
+    ggplot2::scale_x_continuous(limits = 0:1, expand = ggplot2::expand_scale(mult = 0, add = c(0.05, 0.1))) +
+    ggplot2::scale_y_continuous(limits = 0:1, expand = ggplot2::expand_scale(mult = 0, add = c(0.05, 0.1)))
+
+  p <- jaspGraphs::themeJasp(p)
+
+  return(p)
+}
 #### Cdf plot ----
 .ldEstCDFPlot <- function(fit, variable, options) {
   UseMethod(".ldEstCDFPlot", fit)
@@ -1023,6 +1066,28 @@ coef.fitMCMC <- function(fit, options=NULL, n=NULL, includeSampleInfo = FALSE) {
     ggplot2::scale_y_continuous(limits = 0:1) +
     ggplot2::ylab(substitute(p~(X <= x), list(p = gettext("Probability")))) +
     ggplot2::xlab(options[['variable']])
+
+  p <- jaspGraphs::themeJasp(p)
+
+  return(p)
+}
+
+.ldEstCDFPlot.fitMCMC <- function(fit, variable, options){
+  parameters <- coef(fit, options, n = 20)
+
+  p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(x = variable)) +
+    ggplot2::stat_ecdf(geom = "step", size = 1.5) +
+    ggplot2::geom_rug() +
+    ggplot2::scale_x_continuous(limits = range(variable), breaks = pretty(range(variable))) +
+    ggplot2::scale_y_continuous(limits = 0:1) +
+    ggplot2::ylab(substitute(p~(X <= x), list(p = gettext("Probability")))) +
+    ggplot2::xlab(options[['variable']])
+
+  for(i in seq_len(nrow(parameters))) {
+    args <- as.list(parameters[i,])
+    p <- p +
+      ggplot2::geom_function(fun = options[['cdfFun']], args = args, size = 1, alpha = 0.1)
+  }
 
   p <- jaspGraphs::themeJasp(p)
 
