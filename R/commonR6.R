@@ -100,7 +100,6 @@ normalR6 <- R6::R6Class(
   )
 )
 
-
 parameterCollectionR6 <- R6::R6Class(
   "parameterCollectionR6",
   public = list(
