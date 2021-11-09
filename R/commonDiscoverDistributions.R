@@ -22,44 +22,6 @@ gettextf <- function(fmt, ..., domain = NULL)  {
 }
 
 ### Summary stats for distributions module ----
-.simulateData <- function(jaspResults, options, as = "scale", sampleSizeName = "n"){
-  if(is.null(jaspResults[['simdata']])){
-    args <- c(options[['pars']], sampleSize = options[['sampleSize']])
-    names(args)[names(args) == "sampleSize"] <- sampleSizeName
-
-    sample <- do.call(options[['rFun']], args)
-    jaspResults[['simdata']] <- createJaspState(sample)
-    jaspResults[['simdata']]$dependOn(c("newVariableName", "simulateNow"))
-
-    if(as == "scale"){
-      .setColumnDataAsScale  (options[["newVariableName"]], sample)
-    } else if(as == "ordinal"){
-      .setColumnDataAsOrdinal(options[["newVariableName"]], sample)
-    } else{
-      .setColumnDataAsNominal(options[["newVariableName"]], sample)
-    }
-
-  }
-
-  return()
-}
-
-.ldCheckInteger <- function(variable, errors){
-  is_integer <- all((variable %% 1) == 0)
-
-  if(isFALSE(errors) && is_integer){
-    errors <- FALSE
-  } else if(isFALSE(errors) && !is_integer){
-    errors <- list(integer = TRUE, message = gettext("The following problem(s) occurred while running the analysis:<ul><li>Variable has to be discrete (i.e., integer)</li></ul>"))
-  } else if(!is_integer){
-    errors[['integer']] <- TRUE
-    errors[['message']] <- paste(errors[['message']], gettext("<ul><li>Variable has to be discrete (i.e., integer)</li></ul>"))
-  } else{
-    errors <- errors
-  }
-
-  return(errors)
-}
 
 .ldGetDataContainer <- function(jaspResults, options, errors = FALSE){
   if(!is.null(jaspResults[['dataContainer']])){
@@ -377,6 +339,8 @@ gettextf <- function(fmt, ..., domain = NULL)  {
     options[['highlightmax']] <- options[['max']]
 
   }
+
+  options$highlightLimits <- c(options[["highlightmin"]], options[["highlightmax"]])
 
   options
 }

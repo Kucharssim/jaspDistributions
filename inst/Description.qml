@@ -22,6 +22,13 @@ Description
 
 	Analysis
 	{
+		title:	qsTr("Normal - refactored")
+		qml:	"LDgaussianunivariate.qml"
+		func:	"Normal"
+	}
+
+	Analysis
+	{
 		title:	qsTr("Normal")
 		qml:	"LDgaussianunivariate.qml"
 		func:	"LDgaussianunivariate"

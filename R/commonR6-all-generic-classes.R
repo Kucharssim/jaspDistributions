@@ -1,9 +1,11 @@
 distributionR6 <- R6::R6Class(
-  "distributionR6",
+  classname = "distributionR6",
   public = list(
     name = NULL,
     parameters = NULL,
     support = c(lower = -Inf, upper = Inf),
+    type = "continuous",
+    dependencies = NULL,
     pdf = function(x, log = FALSE) {
       args <- as.list(self$parameters$getValues())
       args[["x"]]   <- x
@@ -39,7 +41,9 @@ distributionR6 <- R6::R6Class(
 
       return(exp(ll))
     },
-    fit = function(data) {
+    fit = function(data = NULL) {
+      if(!is.null(data)) self$setData(data)
+
       fn <- function(pars, data) {
         self$parameters$setValues(pars)
 
@@ -48,27 +52,58 @@ distributionR6 <- R6::R6Class(
       originalParameters <- self$parameters$clone(deep = FALSE)
       o <- try(optim(par = self$parameters$getValues(), fn = fn, method = "L-BFGS-B",
                  lower = self$parameters$getLower(), upper = self$parameters$getUpper(),
-                 hessian = TRUE, data = data))
+                 hessian = TRUE, data = self$data))
 
       if (!inherits(o, "try-error")) {
         vcov <- try(solve(o$hessian))
         if(!inherits(vcov, "try-error")) {
           self$parameters$vcov <- vcov
         } else {
-          private$message$vcov <- gettext("Error in estimating the variance-covariance matrix of the parameters; could not compute SE and Confidence intervals! <ul><li>Check outliers or feasibility of the distribution fitting the data.</li></ul>")
+          private$errors$vcov <- gettext("Error in estimating the variance-covariance matrix of the parameters; could not compute SE and Confidence intervals! <ul><li>Check outliers or feasibility of the distribution fitting the data.</li></ul>")
         }
       } else if (o$convergence != 0) {
-        if(!is.null(o$message)) {
-          private$message$convergence <- gettextf("Optimization finished abnormally with code %s and the following message: %s. Interpret results with caution!", o$convergence, o$message)
+        if(!is.null(o$errors)) {
+          private$errors$convergence <- gettextf("Optimization finished abnormally with code %s and the following message: %s. Interpret results with caution!", o$convergence, o$errors)
         } else {
-          private$message$convergence <- gettextf("Optimization finished abnormally with code %s. Interpret results with caution!", o$convergence)
+          private$errors$convergence <- gettextf("Optimization finished abnormally with code %s. Interpret results with caution!", o$convergence)
         }
       } else {
         self$parameters <- originalParameters
-        private$message$fit <- gettext("Estimation failed: Optimization did not converge. <ul><li>Try adjusting parameter values, check outliers or feasibility of the distribution fitting the data.</li></ul>")
+        private$errors$fit <- gettext("Estimation failed: Optimization did not converge. <ul><li>Try adjusting parameter values, check outliers or feasibility of the distribution fitting the data.</li></ul>")
       }
 
       invisible(self)
+    },
+    setData = function(data) {
+      validData <- self$checkData(data)
+      if(validData) {
+        private$data <- data
+      } else {
+        warning(gettext("Invalid data!"))
+      }
+
+      invisible(self)
+    },
+    getData = function(data) {
+      return(private$data)
+    },
+    checkData = function(data) {
+      errors <- .hasErrors(dataset = data.frame(variable = data),
+                           type    = c("infinity", "variance", "observations", "limits"),
+                           observations.amount = sprintf("<%s", 2),
+                           limits.min = self[["support"]][["lower"]],
+                           limits.max = self[["support"]][["upper"]],
+                           exitAnalysisIfErrors = FALSE)
+
+      if(isFALSE(errors)) {
+        return(TRUE)
+      } else {
+        private$errors$data <- errors$message
+        return(FALSE)
+      }
+    },
+    getErrors = function() {
+      return(private$errors)
     }
   ),
   private = list(
@@ -76,27 +111,8 @@ distributionR6 <- R6::R6Class(
     cdfFun = NULL,
     qfFun  = NULL,
     rngFun = NULL,
-    message = list()
-  )
-)
-
-normalR6 <- R6::R6Class(
-  "normalR6",
-  inherit = distributionR6,
-  public = list(
-    initialize = function(options) {
-      self$name <- gettext("normal distribution")
-      private$pdfFun <- dnorm
-      private$cdfFun <- pnorm
-      private$qfFun  <- qnorm
-      private$rngFun <- rnorm
-
-      self$parameters <- parameterCollectionR6$new(
-        mean = parameterR6$new(value = 0, lower = -Inf, upper = Inf),
-        sd   = parameterR6$new(value = 1, lower = 0,    upper = Inf),
-        transformations = c(mu = "mean", sigma2 = "sd^2", sigma = "sd", tau = "1/sd^2", kappa = "1/sd")
-      )
-    }
+    errors = list(data = FALSE, fit = FALSE),
+    data   = NULL
   )
 )
 

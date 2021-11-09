@@ -19,7 +19,8 @@ Imports:
   jaspGraphs,
   MASS,
   sgt,
-  sn
+  sn,
+  R6
 Remotes:
   jasp-stats/jaspBase,
   jasp-stats/jaspGraphs
