@@ -34,20 +34,20 @@ distributionR6 <- R6::R6Class(
       args[["n"]] <- n
       do.call(private$rngFun, args)
     },
-    likelihood = function(x, log = TRUE) {
-      ll <- sum(self$pdf(x, log = TRUE))
+    likelihood = function(log = TRUE) {
+      ll <- sum(self$pdf(self$getData(), log = TRUE))
 
       if(log) return(ll)
 
       return(exp(ll))
     },
-    fit = function(data = NULL) {
+    mle = function(data = NULL) {
       if(!is.null(data)) self$setData(data)
 
       fn <- function(pars, data) {
         self$parameters$setValues(pars)
 
-        -self$likelihood(data)
+        -self$likelihood()
       }
       originalParameters <- self$parameters$clone(deep = FALSE)
       o <- try(optim(par = self$parameters$getValues(), fn = fn, method = "L-BFGS-B",
@@ -59,17 +59,17 @@ distributionR6 <- R6::R6Class(
         if(!inherits(vcov, "try-error")) {
           self$parameters$vcov <- vcov
         } else {
-          private$errors$vcov <- gettext("Error in estimating the variance-covariance matrix of the parameters; could not compute SE and Confidence intervals! <ul><li>Check outliers or feasibility of the distribution fitting the data.</li></ul>")
+          private$errors$mle$vcov <- gettext("Error in estimating the variance-covariance matrix of the parameters; could not compute SE and Confidence intervals! <ul><li>Check outliers or feasibility of the distribution fitting the data.</li></ul>")
         }
       } else if (o$convergence != 0) {
         if(!is.null(o$errors)) {
-          private$errors$convergence <- gettextf("Optimization finished abnormally with code %s and the following message: %s. Interpret results with caution!", o$convergence, o$errors)
+          private$errors$mle$convergence <- gettextf("Optimization finished abnormally with code %s and the following message: %s. Interpret results with caution!", o$convergence, o$errors)
         } else {
-          private$errors$convergence <- gettextf("Optimization finished abnormally with code %s. Interpret results with caution!", o$convergence)
+          private$errors$mle$convergence <- gettextf("Optimization finished abnormally with code %s. Interpret results with caution!", o$convergence)
         }
       } else {
         self$parameters <- originalParameters
-        private$errors$fit <- gettext("Estimation failed: Optimization did not converge. <ul><li>Try adjusting parameter values, check outliers or feasibility of the distribution fitting the data.</li></ul>")
+        private$errors$mle$fit <- gettext("Estimation failed: Optimization did not converge. <ul><li>Try adjusting parameter values, check outliers or feasibility of the distribution fitting the data.</li></ul>")
       }
 
       invisible(self)
@@ -111,7 +111,7 @@ distributionR6 <- R6::R6Class(
     cdfFun = NULL,
     qfFun  = NULL,
     rngFun = NULL,
-    errors = list(data = FALSE, fit = FALSE),
+    errors = list(data = FALSE, mle = list()),
     data   = NULL
   )
 )

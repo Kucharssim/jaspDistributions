@@ -19,10 +19,11 @@ GenericDistribution <- function(jaspResults, dataset, options, state=NULL, distr
   options <- .recodeCommonOptions(options)
   distribution <- .getDistribution(options, distributionName)
 
-  .showDistribution(jaspResults, distribution, options)
-  .simulateData    (jaspResults, distribution, options)
-  .readAndCheckData(jaspResults, distribution, options, dataset)
-  .descriptives    (jaspResults, distribution, options)
+  .showDistribution (jaspResults, distribution, options)
+  .simulateData     (jaspResults, distribution, options)
+  .readAndCheckData (jaspResults, distribution, options, dataset)
+  .descriptives     (jaspResults, distribution, options)
+  .maximumLikelihood(jaspResults, distribution, options)
 }
 
 .recodeCommonOptions <- function(options) {
@@ -42,7 +43,6 @@ GenericDistribution <- function(jaspResults, dataset, options, state=NULL, distr
   return(options)
 }
 
-#### Show distribution ----
 .getDistribution <- function(options, distributionName) {
 
   distribution <- switch(
@@ -52,6 +52,8 @@ GenericDistribution <- function(jaspResults, dataset, options, state=NULL, distr
 
   return(distribution)
 }
+
+# Show distribution ----
 
 .getPlotContainer <- function(jaspResults, distribution, options, name, title, position){
   if(!is.null(jaspResults[[name]])) return(jaspResults[[name]])
@@ -200,6 +202,8 @@ GenericDistribution <- function(jaspResults, dataset, options, state=NULL, distr
   if(distribution$type %in% c("continuous", "discrete")) {
     .descriptivesContinuousMainTable (container, distribution, options)
     .descriptivesObservedMomentsTable(container, distribution, options)
+    .descriptivesHistogramPlot       (container, distribution, options)
+    .descriptivesECDFPlot            (container, distribution, options)
   }
 }
 
@@ -265,25 +269,131 @@ GenericDistribution <- function(jaspResults, dataset, options, state=NULL, distr
 
   momentsTable$setData(res)
 }
-# .ldDescriptives <- function(jaspResults, variable, options, ready, errors, as = c("continuous", "discrete", "factor")){
-#   as <- match.arg(as)
-#   dataContainer <- .ldGetDataContainer(jaspResults, options, errors)
-#
-#   if(as == "continuous") {
-#     ready <- ready && (isFALSE(errors) || (is.null(errors$infinity) && is.null(errors$observations)))
-#     .ldSummaryContinuousTableMain(dataContainer, variable, options, ready)
-#     .ldObservedMomentsTableMain  (dataContainer, variable, options, ready)
-#     .ldPlotHistogram             (dataContainer, variable, options, ready)
-#     .ldPlotECDF                  (dataContainer, variable, options, ready)
-#   } else if(as == "discrete") {
-#     ready <- ready && (isFALSE(errors) || (is.null(errors$infinity) && is.null(errors$observations)))
-#     .ldSummaryContinuousTableMain(dataContainer, variable, options, ready)
-#     .ldObservedMomentsTableMain  (dataContainer, variable, options, ready)
-#     .ldPlotHistogram             (dataContainer, variable, options, ready, "discrete")
-#     .ldPlotECDF                  (dataContainer, variable, options, ready)
-#   } else {
-#     ready <- ready && isFALSE(errors)
-#     .ldSummaryFactorTableMain    (dataContainer, variable, options, ready)
-#     .ldPlotHistogram             (dataContainer, variable, options, ready, "factor")
-#   }
-# }
+
+.descriptivesHistogramPlot <- function(container, distribution, options) {
+  if(!options[["histogram"]]) return()
+  if(!is.null(container[['histogram']])) return()
+
+  title <- switch(distribution$type, factor = gettext("Bar plot"), gettext("Histogram"))
+  histPlot <- createJaspPlot(title = title, width = 500, height = 320)
+
+  if(distribution$type != "continuous") {
+    histPlot$dependOn(c("histogram"))
+  } else {
+    histPlot$dependOn(c("histogramBins", "histogram"))
+  }
+  histPlot$position <- 3
+
+  container[['histogram']] <- histPlot
+
+  if(is.null(distribution$getData())) return()
+
+  histPlot$plotObject <- distribution$plotHistogram(options[["variable"]], options[["histogramBins"]])
+}
+
+.descriptivesECDFPlot <- function(container, distribution, options) {
+  if(!options[["ecdf"]]) return()
+  if(!is.null(container[["ecdf"]])) return()
+
+  ecdfPlot <- createJaspPlot(title = gettext("Empirical Cumulative Distribution"), width = 500, height = 320)
+
+  ecdfPlot$dependOn(c("ecdf"))
+  ecdfPlot$position <- 4
+
+  container[['ecdf']] <- ecdfPlot
+
+  if(is.null(distribution$getData())) return()
+
+  ecdfPlot$plotObject <- distribution$plotECDF(options[["variable"]])
+}
+
+# Maximum Likelihood ----
+.getMLEContainer <- function(jaspResults, distribution, options) {
+  if(!is.null(jaspResults[["mleContainer"]])) return(jaspResults[["mleContainer"]])
+
+  container <- createJaspContainer(title = gettext("Maximum likelihood"), position = 7)
+  container$dependOn(c("variable", "simulateNow", distribution$dependencies))
+
+  jaspResults[["mleContainer"]] <- container
+
+  return(container)
+}
+
+.maximumLikelihood <- function(jaspResults, distribution, options) {
+  # override MLE option if any assess fit method is requested
+  if(!options[["methodMLE"]] && !.anyAssessFitRequested(options)) return()
+
+  container <- .getMLEContainer(jaspResults, distribution, options)
+
+  if(!isFALSE(distribution$getErrors()$data)) {
+    container$setError(distribution$getErrors()$data)
+    return()
+  }
+
+  .parameterEstimatesTable(container, distribution, options)
+
+  distribution$mle()
+  if(!is.null(distribution$getErrors()$mle$fit)) {
+    container$setError(distribution$getErrors()$mle$fit)
+    return()
+  }
+
+  container[["parameterEstimatesTable"]]$setData(distribution$parameters$summary(ciLevel = options[["ciIntervalInterval"]]))
+
+}
+
+.parameterEstimatesTable <- function(container, distribution, options) {
+  if(!options[["outputEstimates"]]) return()
+  if(!is.null(container[["parameterEstimatesTable"]])) return()
+
+  tab <- createJaspTable(title = gettext("Estimated Parameters"))
+  tab$dependOn(c("outputEstimates", "outputSE", "ciInterval", "ciIntervalInterval", "parametrization", "methodMLE"))
+  tab$position <- 1
+  tab$showSpecifiedColumnsOnly <- TRUE
+  # tab$setExpectedSize(rows = length(distribution$parameters$getValues()))
+
+  tab$addColumnInfo(name = "parameterName",   title = gettext("Name"),   type = "string", overtitle = gettext("Parameter"))
+  tab$addColumnInfo(name = "parameterSymbol", title = gettext("Symbol"), type = "string", overtitle = gettext("Parameter"))
+  tab$addColumnInfo(name = "estimate", title = gettext("Estimate"), type = "number")
+
+  #"\u03BC\u0302"
+  if(options$outputSE && TRUE) {# distribution$se.possible){
+    tab$addColumnInfo(name = "se", title = gettext("SE"), type = "number")
+  } else if(options$outputSE) {
+    tab$addFootnote(gettext("Standard errors are unavailable with this method"))
+  }
+
+  if(options$ciInterval && TRUE) {#distribution$ci.possible){
+    tab$addColumnInfo(name = "lower", title = gettext("Lower"), type = "number",
+                      overtitle = gettextf("%s%% CI", options[['ciIntervalInterval']]*100))
+    tab$addColumnInfo(name = "upper", title = gettext("Upper"), type = "number",
+                      overtitle = gettextf("%s%% CI", options[['ciIntervalInterval']]*100))
+  } else if(options$ciInterval){
+    tab$addFootnote(gettext("Confidence intervals are unavailable with this method."))
+  }
+
+  tab$addCitation(.ldAllTextsList()$references$fitdistrplus)
+
+  if(options$ciInterval && !options$outputSE){
+    tab$addFootnote(gettext("Confidence intervals were calculated using the delta method."))
+  } else if(!options$ciInterval && options$outputSE){
+    tab$addFootnote(gettext("Standard errors were calculated using the delta method."))
+  } else if(options$ciInterval && options$outputSE){
+    tab$addFootnote(gettext("Standard errors and confidence intervals were calculated using the delta method."))
+  }
+
+  container[["parameterEstimatesTable"]] <- tab
+}
+
+.anyAssessFitRequested <- function(options) {
+  isTRUE(options[["kolmogorovSmirnov"]]) ||
+    isTRUE(options[["cramerVonMisses"]]) ||
+    isTRUE(options[["andersonDarling"]]) ||
+    isTRUE(options[["shapiroWilk"]]) ||
+    isTRUE(options[["chiSquare"]]) ||
+    isTRUE(options[["estPDF"]]) ||
+    isTRUE(options[["estPMF"]]) ||
+    isTRUE(options[["estCDF"]]) ||
+    isTRUE(options[["qqplot"]]) ||
+    isTRUE(options[["ppplot"]])
+}

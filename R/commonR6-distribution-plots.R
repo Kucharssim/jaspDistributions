@@ -69,3 +69,43 @@ distributionR6$set(
     return(plot)
   }
 )
+
+
+distributionR6$set(
+  which = "public", name = "plotHistogram",
+  value = function(variableName, histogramBins = NULL) {
+    variable <- self$getData()
+    range <- range(variable)
+    histData <- hist(variable,
+                     breaks = seq(range[1], range[2], length.out = histogramBins+1),
+                     plot = FALSE)
+    dat <- data.frame(counts = histData$counts, density = histData$density, mids = histData$mids)
+
+    plot <- ggplot2::ggplot(data = dat, ggplot2::aes(x = mids, y = counts/sum(counts))) +
+      ggplot2::geom_bar(stat="identity", fill = "grey", colour = "black") +
+      ggplot2::xlab(variableName) +
+      ggplot2::ylab(gettextf("Rel. Freq (%s in bin)", variableName))
+
+    plot <- plot + ggplot2::scale_x_continuous(limits = range,
+                                               expand = c(0.05, 0),
+                                               breaks = jaspGraphs::getPrettyAxisBreaks(range))
+
+    plot <- jaspGraphs::themeJasp(plot)
+    return(plot)
+  }
+)
+
+distributionR6$set(
+  which = "public", name = "plotECDF",
+  value = function(variableName) {
+    variable <- self$getData()
+    p <- ggplot2::ggplot(data = data.frame(variable = variable), ggplot2::aes(x = variable)) +
+      ggplot2::stat_ecdf(geom = "step", size = 1.5) +
+      ggplot2::geom_rug() +
+      ggplot2::scale_x_continuous(limits = range(variable)*1.1) +
+      ggplot2::xlab(variableName) +
+      ggplot2::ylab(substitute(f~(v <= x), list(f = gettext("Freq"), v = variableName)))
+
+    p <- jaspGraphs::themeJasp(p)
+  }
+)
