@@ -1,3 +1,4 @@
+# distributionR6 ----
 distributionR6 <- R6::R6Class(
   classname = "distributionR6",
   public = list(
@@ -116,101 +117,157 @@ distributionR6 <- R6::R6Class(
   )
 )
 
-parameterCollectionR6 <- R6::R6Class(
-  "parameterCollectionR6",
+# parSetR6 ----
+parSetR6 <- R6::R6Class(
+  "parSetR6",
   public = list(
-    parameterList = list(),
-    transformations = NULL,
-    vcov = NULL,
-    initialize = function(..., transformations = NULL) {
-      self$parameterList <- list(...)
+    initialize = function(internal, primary, transformations = NULL) {
+      names(internal) <- lapply(internal, \(p) p$name)
+      private$.internal <- internal
 
-      if(is.null(transformations)) {
-        self$transformations <- self$getNames()
-        names(self$transformations) <- self$getNames()
+      names(primary) <- lapply(primary, \(p) p$name)
+      private$.primary <- primary
+
+      private$.transformations <- transformations
+
+      private$.transform()
+    },
+    summary = function(internal = TRUE, primary = TRUE) {
+      int <- lapply(private$.internal, \(p) p$summary())
+      int <- do.call(rbind, int)
+      int[["type"]] <- "internal"
+
+      pri <- lapply(private$.primary, \(p) p$summary())
+      pri <- do.call(rbind, pri)
+      pri[["type"]] <- "primary"
+
+      if(internal && primary) {
+        return(rbind(int, pri))
+      } else if(internal) {
+        return(int)
+      } else if(primary) {
+        return(pri)
+      }
+    }
+  ),
+  private = list(
+    .internal = NULL,
+    .primary = NULL,
+    .transformations = NULL,
+    .transform = function() {
+      env <- list2env(self$primary)
+
+      values <- lapply(private$.transformations, \(tt) {
+        eval(expr = parse(text = tt), envir = env)
+      })
+
+      for(p in private$.internal)
+        p$value <- values[[p$name]]
+    }
+  ),
+  active = list(
+    primary = function(values) {
+      if(missing(values)) {
+        values <- lapply(private$.primary, function(p) p$value)
+        return(values)
       } else {
-        self$transformations <- transformations
+        values <- as.list(values)
+        names  <- names(values)
+
+        for(p in private$.primary) {
+          if(p$name %in% names)
+            p$value <- values[[p$name]]
+        }
+
+        private$.transform()
       }
     },
-    getNames = function() {
-      names(self$parameterList)
-    },
-    getValues = function() {
-      out <- sapply(self$parameterList, function(p) p$getValue())
-      names(out) <- self$getNames()
-      return(out)
-    },
-    getLower = function() {
-      out <- sapply(self$parameterList, function(p) p$getLower())
-      names(out) <- self$getNames()
-      return(out)
-    },
-    getUpper = function() {
-      out <- sapply(self$parameterList, function(p) p$getUpper())
-      names(out) <- self$getNames()
-      return(out)
-    },
-    setValues = function(values) {
-      nms <- names(values)
-      for(i in seq_along(values)) {
-        self$parameterList[[nms[i]]]$setValue(values[[i]])
+    free = function(values) {
+      if(missing(values)) {
+        values <- self$primary
+        free   <- vapply(private$.primary, \(p) !p$fixed, logical(1))
+        values <- values[free]
+        return(values)
+      } else {
+        stop("Use $primary to set parameter values")
       }
-
-      invisible(self)
     },
-    summary = function(ciLevel = 0.95) {
-      result <-
-        sapply(self$transformations,
-               function(tr) car::deltaMethod(self$getValues(), tr, self$vcov, level = ciLevel))
-      result <- t(result)
-      result <- as.data.frame(result)
-      colnames(result) <- c("estimate", "se", "lower", "upper")
-
-      result <- data.frame(
-        label = rownames(result),
-        result
-      )
-
-      return(result)
+    fixed = function(values) {
+      if(missing(values)) {
+        values <- self$primary
+        fixed  <- vapply(private$.primary, \(p) p$fixed, logical(1))
+        values <- values[fixed]
+        return(values)
+      } else {
+        stop("Cannot set fixed parameters")
+      }
+    },
+    internal = function(values) {
+      if(missing(values)) {
+        values <- lapply(private$.internal, function(p) p$value)
+      } else {
+        stop("Cannot set internal parameters directly!")
+      }
     }
   )
 )
 
-parameterR6 <- R6::R6Class(
-  "parameterR6",
+
+# parR6 ----
+parR6 <- R6::R6Class(
+  "parR6",
   public = list(
-    initialize = function(value = 1, lower = -Inf, upper = Inf) {
-      stopifnot(lower < upper)
+    initialize = function(name = "", label = name, value = 1, support = set6::Reals$new(), fixed = FALSE) {
+      private$.support <- support
+      self$name    <- name
+      self$label   <- label
 
-      private$lower <- lower
-      private$upper <- upper
-
-      private$checkValidValue(value)
-      private$value <- value
+      private$.fixed <- fixed
+      private$.checkValidValue(value)
+      private$.value <- value
     },
-    setValue = function(value) {
-      private$checkValidValue(value)
-      private$value <- value
-
+    summary = function() {
+      data.frame(name = self$name, label = self$label, value = private$.value, support = private$.support$strprint(), lower = private$.support$lower, upper = private$.support$upper, fixed = private$.fixed)
+    },
+    print = function() {
+      print(self$summary())
       invisible(self)
     },
-    getValue = function() {
-      return(private$value)
-    },
-    getLower = function() {
-      return(private$lower)
-    },
-    getUpper = function() {
-      return(private$upper)
-    }
+    name   = "",
+    label  = ""
   ),
   private = list(
-    value = NULL,
-    lower = -Inf,
-    upper = Inf,
-    checkValidValue = function(value) {
-      stopifnot(private$lower < value)
-      stopifnot(private$upper > value)
+    .value = NULL,
+    .support = set6::Set$new(),
+    .fixed = FALSE,
+    .checkValidValue = function(value) {
+      stopifnot(all(private$.support$contains(value)))
+    }
+  ),
+  active = list(
+    value = function(value) {
+      if(missing(value)) {
+        return(private$.value)
+      } else if (private$.fixed) {
+        stop("Cannot re-set fixed parameter")
+      } else{
+        private$.checkValidValue(value)
+        private$.value <- value
+      }
+    },
+    support = function(support) {
+      if(missing(support)) {
+        return(private$.support)
+      } else {
+        stop("Cannot change support.")
+      }
+    },
+    fixed = function(fixed) {
+      if(missing(fixed)) {
+        return(private$.fixed)
+      } else {
+        stop("Cannot fix or unfix a parameter")
+      }
     }
   )
 )

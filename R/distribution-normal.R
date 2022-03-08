@@ -16,6 +16,7 @@
 #
 
 Normal <- function(jaspResults, dataset, options, state=NULL) {
+  save(options, file = "~/Downloads/opts.Rdata")
   GenericDistribution(jaspResults, dataset, options, state, "Normal")
 }
 
@@ -32,16 +33,37 @@ normalR6 <- R6::R6Class(
       private$qfFun  <- qnorm
       private$rngFun <- rnorm
 
-      sd <- switch(parametrization,
-                   "sigma"  = scale,
-                   "sigma2" = sqrt(scale),
-                   "tau"    = 1/sqrt(scale),
-                   "kappa"  = 1/scale)
-
-      self$parameters <- parameterCollectionR6$new(
-        mean = parameterR6$new(value = mean, lower = -Inf, upper = Inf),
-        sd   = parameterR6$new(value = sd,   lower = 0,    upper = Inf),
-        transformations = c(mu = "mean", sigma2 = "sd^2", sigma = "sd", tau = "1/sd^2", kappa = "1/sd")
+      self$parameters <- parSetR6$new(
+        internal = list(
+          parR6$new(name = "mean", support = set6::Reals$new()   ),
+          parR6$new(name = "sd",   support = set6::PosReals$new())
+        ),
+        primary = switch(
+          parametrization,
+          "sigma" = list(
+            parR6$new(name = "mu",    label = "\\mu",    value = mean,  support = set6::Reals$new()   ),
+            parR6$new(name = "sigma", label = "\\sigma", value = scale, support = set6::PosReals$new())
+          ),
+          "sigma2" = list(
+            parR6$new(name = "mu",     label = "\\mu",      value = mean,  support = set6::Reals$new()   ),
+            parR6$new(name = "sigma2", label = "\\sigma^2", value = scale, support = set6::PosReals$new())
+          ),
+          "tau" = list(
+            parR6$new(name = "mu",    label = "\\mu",  value = mean,  support = set6::Reals$new()   ),
+            parR6$new(name = "tau",   label = "\\tau", value = scale, support = set6::PosReals$new())
+          ),
+          "kappa" = list(
+            parR6$new(name = "mu",    label = "\\mu",    value = mean,  support = set6::Reals$new()   ),
+            parR6$new(name = "kappa", label = "\\kappa", value = scale, support = set6::PosReals$new())
+          )
+        ),
+        transformations = switch(
+          parametrization,
+          "sigma"  = list(mean = "mu", sd = "sigma"),
+          "sigma2" = list(mean = "mu", sd = "sqrt(sigma2)"),
+          "tau"    = list(mean = "mu", sd = "1/sqrt(tau)"),
+          "kappa"  = list(mean = "mu", sd = "1/kappa")
+        )
       )
     }
   )
