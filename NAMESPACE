@@ -3,6 +3,7 @@
 S3method(cdf,jaspDistribution)
 S3method(pdf,jaspDistribution)
 S3method(plotPDF,jaspContinuousDistribution)
+S3method(print,jaspDistribution)
 S3method(print,jaspParameter)
 S3method(print,jaspParameters)
 S3method(qf,jaspContinuousDistribution)

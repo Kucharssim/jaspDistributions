@@ -64,7 +64,7 @@ normal <- function(mu, sigma, sigma2, tau, kappa) {
 
 
   result <- list()
-
+  result[["name"]] <- "Normal"
   result[["parameters"]] <- switch(
     parametrization,
     "sigma"  = pars(pr(mu, "\u03BC"), pr(sigma,  "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "sigma")       ),
@@ -78,13 +78,27 @@ normal <- function(mu, sigma, sigma2, tau, kappa) {
   return(result)
 }
 
+#' @export
+print.jaspDistribution <- function(distribution) {
+  cat(distribution[["name"]], " distribution\n")
+  print(distribution[["parameters"]])
+}
 # parameters ----
-pr <- function(value, label, lower = -Inf, upper = Inf, fixed = FALSE) {
+fixed <- function(x) {
+  attr(x, "fixed") <- TRUE
+  x
+}
+
+isFixed <- function(x) {
+  isTRUE(attr(x, "fixed"))
+}
+
+pr <- function(value, label, lower = -Inf, upper = Inf) {
   attr(value, "name")  <- paste(deparse(substitute(value), 500), collapse = "\n")
   attr(value, "label") <- label
   attr(value, "lower") <- lower
   attr(value, "upper") <- upper
-  attr(value, "fixed") <- fixed
+  attr(value, "fixed") <- isFixed(value)
 
   class(value) <- "jaspParameter"
   return(value)
