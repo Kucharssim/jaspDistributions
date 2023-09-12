@@ -55,6 +55,22 @@ rng.jaspDistribution <- function(distribution, n) {
   return(do.call(distribution[["functions"]][["rng"]], args))
 }
 
+# likelihood ----
+likelihood <- function(distribution, x, log = FALSE, scaling = 1) {
+  UseMethod("likelihood")
+}
+
+#' @export
+likelihood.jaspDistribution <- function(distribution, x, log = FALSE, scaling = 1) {
+  x <- na.omit(x)
+  ll <- pdf(distribution, x, TRUE)
+  ll <- scaling * sum(ll[!is.infinite(ll)])
+  if (log) {
+    return(ll)
+  } else {
+    return(exp(ll))
+  }
+}
 
 
 
@@ -151,3 +167,75 @@ transform.jaspParameters <- function(parameters) {
 
   return(result)
 }
+
+#' @export
+value <- function(x, ...) {
+  UseMethod("value")
+}
+
+#' @export
+value.jaspParameter <- function(x) {
+  x <- unclass(x)
+  attributes(x) <- NULL
+  return(x)
+}
+
+#' @export
+value.jaspParameters <- function(x) {
+  x <- sapply(x, value)
+  return(x)
+}
+
+#' @export
+lower <- function(x) {
+  UseMethod("lower")
+}
+
+#' @export
+lower.jaspParameter <- function(x) {
+  x <- attr(x, "lower")
+  return(x)
+}
+
+#' @export
+lower.jaspParameters <- function(x) {
+  x <- sapply(x, lower)
+  return(x)
+}
+
+#' @export
+upper <- function(x) {
+  UseMethod("upper")
+}
+
+#' @export
+upper.jaspParameter <- function(x) {
+  x <- attr(x, "upper")
+  return(x)
+}
+
+#' @export
+upper.jaspParameters <- function(x) {
+  x <- sapply(x, upper)
+  return(x)
+}
+
+#' @export
+free <- function(x) {
+  UseMethod("free")
+}
+
+#' @export
+free.jaspParameters <- function(x) {
+  fixed <- sapply(x, isFixed)
+  x[fixed] <- NULL
+  attr(x, "transformations") <- NULL
+  return(x)
+}
+
+
+#' @export
+setPars <- function(x, ...) {
+  UseMethod("setPars")
+}
+
