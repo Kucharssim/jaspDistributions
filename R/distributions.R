@@ -42,3 +42,31 @@ exponential <- function(rate, scale) {
   class(result) <- c("jaspExponential", "jaspContinuousDistribution", "jaspDistribution")
   return(result)
 }
+
+#' @export
+mle.jaspExponential <- function(distribution, data, ciLevel = 0.95) {
+  cache <- distribution
+  alpha <- 1-ciLevel
+  pars <- free(distribution$parameters)
+  if (length(pars) == 0) {
+    warning("Distribution has no free parameters.")
+    return(distribution)
+  }
+
+  data <- na.omit(data)
+  mean <- mean(data)
+
+  if (is.null(distribution$parameter$scale)) {
+    value(distribution$parameters$rate) <- mean
+  } else {
+    value(distribution$parameters$scale) <- 1/mean
+  }
+
+  distribution <- try(mle.jaspDistribution(distribution, data, ciLevel))
+
+  if (jaspBase::isTryError(distribution)) {
+    return(cache)
+  } else {
+    return(distribution)
+  }
+}
