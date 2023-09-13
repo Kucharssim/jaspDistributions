@@ -4,11 +4,14 @@
 \alias{distributions}
 \alias{normal}
 \alias{exponential}
+\alias{binomial}
 \title{JASP Distributions}
 \usage{
 normal(mu, sigma, sigma2, tau, kappa)
 
 exponential(rate, scale)
+
+binomial(theta, trials)
 }
 \description{
 JASP Distributions

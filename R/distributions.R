@@ -70,3 +70,19 @@ mle.jaspExponential <- function(distribution, data, ciLevel = 0.95) {
     return(distribution)
   }
 }
+
+#' @rdname distributions
+#' @export
+binomial <- function(theta, trials) {
+  result <- list()
+  result[["name"]] <- "Binomial"
+  result[["parameters"]] <- pars(
+    pr(value = theta, label = "\u03B8", name = "theta", lower = 0, upper = 1),
+    pr(value = fixed(trials), label = "n", name = "trials", lower = 0),
+    transformations = c(prob = "theta", size = "trials")
+  )
+  result[["functions"]] <- list(pdf = dbinom, cdf = pbinom, qf = qbinom, rng = rbinom)
+
+  class(result) <- c("jaspBinomial", "jaspDiscreteDistribution", "jaspDistribution")
+  return(result)
+}

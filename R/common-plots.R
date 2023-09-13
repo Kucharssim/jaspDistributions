@@ -58,6 +58,30 @@ plotPDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDe
   return(plot)
 }
 
+plotPDF.jaspDiscreteDistribution <- function(distribution, xRange, highlightDensity = NULL, highlightProbability = NULL) {
+  xRange <- as.integer(xRange)
+  yRange <- c(0, 0)
+  plot <- ggplot2::ggplot()
+
+  x <- xRange[1]:xRange[2]
+  df <- data.frame(x = x, y = pdf(distribution, x))
+  yRange <- range(c(yRange, df$y))
+  plot <- plot +
+    ggplot2::geom_segment(data = df, mapping = ggplot2::aes(x = x, xend = x, y = 0, yend = y)) +
+    jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y))
+
+
+  plot <- plot +
+    jaspGraphs::themeJaspRaw() +
+    jaspGraphs::geom_rangeframe() +
+    jaspGraphs::scale_x_continuous(limits = xRange) +
+    jaspGraphs::scale_y_continuous(limits = yRange) +
+    ggplot2::ylab(gettext("Probability Mass")) +
+    ggplot2::xlab(gettext("X"))
+
+  return(plot)
+}
+
 plotCDF <- function(distribution, xRange, highlightDensity = FALSE, highlightProbability = FALSE, highlightRange = NULL) {
   UseMethod("plotCDF")
 }
@@ -86,6 +110,36 @@ plotCDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDe
       ggplot2::geom_abline(data = df, mapping = ggplot2::aes(intercept = intercept, slope = slope, col = label)) +
       jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y, col = label)) +
       ggplot2::scale_color_discrete(name = gettext("PDF"))
+  }
+
+  plot <- plot +
+    jaspGraphs::themeJaspRaw(legend.position = "right") +
+    jaspGraphs::geom_rangeframe() +
+    jaspGraphs::scale_x_continuous(limits = xRange) +
+    jaspGraphs::scale_y_continuous(limits = yRange) +
+    ggplot2::ylab(gettext("Probability")) +
+    ggplot2::xlab(gettext("X"))
+
+  return(plot)
+}
+
+plotCDF.jaspDiscreteDistribution <- function(distribution, xRange, highlightDensity = NULL, highlightProbability = NULL) {
+  plot <- ggplot2::ggplot()
+  xRange <- as.integer(xRange)
+  yRange <- c(0, 1)
+  x  <- xRange[1]:xRange[2]
+  df <- data.frame(x = x, y = cdf(distribution, x))
+
+  if (nrow(df) <= 200) {
+    plot <- plot +
+      ggplot2::geom_segment(data = df, mapping = ggplot2::aes(x = x, xend = x, y = 0, yend = y))
+  } else {
+    plot <- plot +
+      plotCurve(df, shade = TRUE, shadeColor = adjustcolor("gray", alpha = 0.2))
+  }
+
+  if (nrow(df) <= 50) {
+    plot <- plot + jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y))
   }
 
   plot <- plot +
