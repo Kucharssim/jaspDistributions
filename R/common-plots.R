@@ -31,11 +31,11 @@ plotPDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDe
       x  <- seq(min, max, length.out = 101)
       df <- data.frame(x = x, y = pdf(distribution, x))
       yRange <- range(c(yRange, df$y))
-      plot <- plot + plotCurve(data = df, line = FALSE, shade = TRUE)
+      plotProb <- plotCurve(data = df, line = FALSE, shade = TRUE)
     }
   }
 
-  x  <- seq(xRange[1], xRange[2], length.out = 101)
+  x  <- sort(c(x, seq(xRange[1], xRange[2], length.out = 101)))
   df <- data.frame(x = x, y = pdf(distribution, x))
   yRange <- range(c(yRange, df$y))
   plot <- plot + plotCurve(data = df)
@@ -43,6 +43,7 @@ plotPDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDe
   if (!is.null(highlightDensity)) {
     x <- highlightDensity[highlightDensity > xRange[1] & highlightDensity < xRange[2]]
     df <- data.frame(x = x, y = pdf(distribution, x))
+    yRange <- range(c(yRange, df$y))
     plot <- plot +
       jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y))
   }
@@ -102,6 +103,10 @@ prettyFormat <- function(x) {
   ifelse(
     x > 0.001,
     format(round(x, digits = 3)),
-    format(x, digits = 3, scientific = TRUE)
+    ifelse(
+      x == 0,
+      "0",
+      format(x, digits = 3, scientific = TRUE)
+    )
   )
 }

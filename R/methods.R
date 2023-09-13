@@ -72,28 +72,6 @@ likelihood.jaspDistribution <- function(distribution, x, log = FALSE, scaling = 
   }
 }
 
-
-
-# simple normal constructor ----
-normal <- function(mu, sigma, sigma2, tau, kappa) {
-  parametrization <- rlang::check_exclusive(sigma, sigma2, tau, kappa)
-
-
-  result <- list()
-  result[["name"]] <- "Normal"
-  result[["parameters"]] <- switch(
-    parametrization,
-    "sigma"  = pars(pr(mu, "\u03BC"), pr(sigma,  "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "sigma")       ),
-    "sigma2" = pars(pr(mu, "\u03BC"), pr(sigma2, "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "sqrt(sigma2)")),
-    "tau"    = pars(pr(mu, "\u03BC"), pr(tau,    "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "1/sqrt(tau)") ),
-    "kappa"  = pars(pr(mu, "\u03BC"), pr(kappa,  "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "1/kappa")     )
-    )
-  result[["functions"]] <- list(pdf = dnorm, cdf = pnorm, qf = qnorm, rng = rnorm)
-
-  class(result) <- c("jaspNormal", "jaspContinuousDistribution", "jaspDistribution")
-  return(result)
-}
-
 #' @export
 print.jaspDistribution <- function(distribution) {
   cat(distribution[["name"]], " distribution\n")
@@ -199,10 +177,10 @@ value.jaspParameters <- function(x) {
 
 #' @export
 `value<-.jaspParameter` <- function(parameter, value) {
-  if(value < lower(parameter) || value > upper(parameter)) {
-    warning("Parameter cannot be assigned a value outside of its support.")
-    return(parameter)
-  }
+  # if(value < lower(parameter) || value > upper(parameter)) {
+  #   warning("Parameter cannot be assigned a value outside of its support.")
+  #   return(parameter)
+  # }
 
   attributes(value) <- attributes(parameter)
   return(value)
