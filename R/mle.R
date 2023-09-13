@@ -13,7 +13,8 @@ mle.jaspDistribution <- function(distribution, data, ciLevel = 0.95) {
 
   objective <- function(pars) {
     value(distribution$parameters) <- pars
-    likelihood(distribution, data, log = TRUE, scaling = -1)
+    ll <- likelihood(distribution, data, log = TRUE, scaling = -1)
+    return(ll)
   }
 
   o <- try(stats::optim(

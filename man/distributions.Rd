@@ -5,13 +5,16 @@
 \alias{normal}
 \alias{exponential}
 \alias{binomial}
+\alias{poisson}
 \title{JASP Distributions}
 \usage{
 normal(mu, sigma, sigma2, tau, kappa)
 
 exponential(rate, scale)
 
-binomial(theta, trials)
+binomial(prob, theta, trials)
+
+poisson(lambda, theta)
 }
 \description{
 JASP Distributions

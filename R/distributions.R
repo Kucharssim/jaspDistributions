@@ -73,16 +73,45 @@ mle.jaspExponential <- function(distribution, data, ciLevel = 0.95) {
 
 #' @rdname distributions
 #' @export
-binomial <- function(theta, trials) {
+binomial <- function(prob, theta, trials) {
+  parametrization <- rlang::check_exclusive(prob, theta)
+
+
   result <- list()
   result[["name"]] <- "Binomial"
-  result[["parameters"]] <- pars(
-    pr(value = theta, label = "\u03B8", name = "theta", lower = 0, upper = 1),
-    pr(value = fixed(trials), label = "n", name = "trials", lower = 0),
-    transformations = c(prob = "theta", size = "trials")
+  result[["parameters"]] <- switch(
+    parametrization,
+    prob = pars(
+      pr(value = prob, label = "p", name = "p", lower = 0, upper = 1),
+      pr(value = fixed(trials), label = "n", name = "trials", lower = 0),
+      transformations = c(prob = "prob", size = "trials")
+      ),
+    theta = pars(
+      pr(value = theta, label = "\u03B8", name = "theta"),
+      pr(value = fixed(trials), label = "n", name = "trials", lower = 0),
+      transformations = c(prob = "jaspBase::invLogit(theta)", size = "trials")
+    )
   )
   result[["functions"]] <- list(pdf = dbinom, cdf = pbinom, qf = qbinom, rng = rbinom)
 
   class(result) <- c("jaspBinomial", "jaspDiscreteDistribution", "jaspDistribution")
+  return(result)
+}
+
+#' @rdname distributions
+#' @export
+poisson <- function(lambda, theta) {
+  parametrization <- rlang::check_exclusive(lambda, theta)
+
+  result <- list()
+  result[["name"]] <- "Poisson"
+  result[["parameters"]] <- switch(
+    parametrization,
+    lambda = pars(pr(value = lambda, lower = 0), transformations = c(lambda = "lambda")),
+    theta = pars(pr(value = theta), transformations = c(lambda = "exp(theta)"))
+  )
+  result[["functions"]] <- list(pdf = dpois, cdf = ppois, qf = qpois, rng = rpois)
+
+  class(result) <- c("jaspPoisson", "jaspDiscreteDistribution", "jaspDistribution")
   return(result)
 }

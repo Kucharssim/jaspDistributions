@@ -66,9 +66,19 @@ plotPDF.jaspDiscreteDistribution <- function(distribution, xRange, highlightDens
   x <- xRange[1]:xRange[2]
   df <- data.frame(x = x, y = pdf(distribution, x))
   yRange <- range(c(yRange, df$y))
-  plot <- plot +
-    ggplot2::geom_segment(data = df, mapping = ggplot2::aes(x = x, xend = x, y = 0, yend = y)) +
-    jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y))
+
+  if (nrow(df) <= 200) {
+    plot <- plot +
+      ggplot2::geom_segment(data = df, mapping = ggplot2::aes(x = x, xend = x, y = 0, yend = y))
+  } else {
+    plot <- plot +
+      plotCurve(df)
+  }
+
+  if (nrow(df) <= 50) {
+    plot <- plot +
+      jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y))
+  }
 
 
   plot <- plot +
