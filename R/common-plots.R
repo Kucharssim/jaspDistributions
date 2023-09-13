@@ -1,3 +1,11 @@
+#' @export
+plot.jaspDistribution <- function(distribution, what = c("pdf", "cdf", "qf"), ...) {
+  what <- match.arg(what)
+  switch(what,
+         pdf = plotPDF(distribution, ...),
+         cdf = plotCDF(distribution, ...))
+}
+
 # plotting functions
 plotCurve <- function(data, line = TRUE, lineColor = "black", lineSize = 1.25, shade  = FALSE, shadeColor = "steelblue", shadeAlpha = 1) {
   out <- list()
@@ -13,7 +21,6 @@ plotPDF <- function(distribution, xRange, highlightDensity = FALSE, highlightPro
   UseMethod("plotPDF")
 }
 
-#' @export
 plotPDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDensity = NULL, highlightProbability = NULL) {
   yRange <- c(0, 0)
   plot <- ggplot2::ggplot()
@@ -50,4 +57,51 @@ plotPDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDe
   return(plot)
 }
 
+plotCDF <- function(distribution, xRange, highlightDensity = FALSE, highlightProbability = FALSE, highlightRange = NULL) {
+  UseMethod("plotCDF")
+}
 
+plotCDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDensity = NULL, highlightProbability = NULL) {
+  plot <- ggplot2::ggplot()
+  yRange <- c(0, 1)
+  x  <- seq(xRange[1], xRange[2], length.out = 101)
+  df <- data.frame(x = x, y = cdf(distribution, x))
+  plot <- plot + plotCurve(data = df)
+
+  if (!is.null(highlightProbability)) {
+
+  }
+
+  if (!is.null(highlightDensity)) {
+    x <- highlightDensity[highlightDensity >= xRange[1] & highlightDensity <= xRange[2]]
+    y <- cdf(distribution, x)
+    slope <- pdf(distribution, x)
+    intercept <- y - slope * x
+    label <- prettyFormat(slope) |> as.factor()
+
+    df <- data.frame(x = x, y = y, slope = slope, intercept = intercept, label = label)
+
+    plot <- plot +
+      ggplot2::geom_abline(data = df, mapping = ggplot2::aes(intercept = intercept, slope = slope, col = label)) +
+      jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y, col = label)) +
+      ggplot2::scale_color_discrete(name = gettext("PDF"))
+  }
+
+  plot <- plot +
+    jaspGraphs::themeJaspRaw(legend.position = "right") +
+    jaspGraphs::geom_rangeframe() +
+    jaspGraphs::scale_x_continuous(limits = xRange) +
+    jaspGraphs::scale_y_continuous(limits = yRange) +
+    ggplot2::ylab(gettext("Probability")) +
+    ggplot2::xlab(gettext("X"))
+
+  return(plot)
+}
+
+prettyFormat <- function(x) {
+  ifelse(
+    x > 0.001,
+    format(round(x, digits = 3)),
+    format(x, digits = 3, scientific = TRUE)
+  )
+}
