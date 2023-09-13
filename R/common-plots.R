@@ -48,11 +48,13 @@ plotPDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDe
       jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y))
   }
 
+  xBreaks <- jaspGraphs::getPrettyAxisBreaks(xRange)
+  yBreaks <- jaspGraphs::getPrettyAxisBreaks(yRange)
   plot <- plot +
     jaspGraphs::themeJaspRaw() +
     jaspGraphs::geom_rangeframe() +
-    jaspGraphs::scale_x_continuous(limits = xRange) +
-    jaspGraphs::scale_y_continuous(limits = yRange) +
+    jaspGraphs::scale_x_continuous(limits = range(xBreaks), breaks = xBreaks) +
+    jaspGraphs::scale_y_continuous(limits = range(yBreaks), breaks = yBreaks) +
     ggplot2::ylab(gettext("Density")) +
     ggplot2::xlab(gettext("X"))
   return(plot)
@@ -80,12 +82,13 @@ plotPDF.jaspDiscreteDistribution <- function(distribution, xRange, highlightDens
       jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y))
   }
 
-
+  xBreaks <- jaspGraphs::getPrettyAxisBreaks(xRange)
+  yBreaks <- jaspGraphs::getPrettyAxisBreaks(yRange)
   plot <- plot +
     jaspGraphs::themeJaspRaw() +
     jaspGraphs::geom_rangeframe() +
-    jaspGraphs::scale_x_continuous(limits = xRange) +
-    jaspGraphs::scale_y_continuous(limits = yRange) +
+    jaspGraphs::scale_x_continuous(limits = range(xBreaks), breaks = xBreaks) +
+    jaspGraphs::scale_y_continuous(limits = range(yBreaks), breaks = yBreaks) +
     ggplot2::ylab(gettext("Probability Mass")) +
     ggplot2::xlab(gettext("X"))
 
@@ -122,11 +125,13 @@ plotCDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDe
       ggplot2::scale_color_discrete(name = gettext("PDF"))
   }
 
+  xBreaks <- jaspGraphs::getPrettyAxisBreaks(xRange)
+  yBreaks <- jaspGraphs::getPrettyAxisBreaks(yRange)
   plot <- plot +
     jaspGraphs::themeJaspRaw(legend.position = "right") +
     jaspGraphs::geom_rangeframe() +
-    jaspGraphs::scale_x_continuous(limits = xRange) +
-    jaspGraphs::scale_y_continuous(limits = yRange) +
+    jaspGraphs::scale_x_continuous(limits = range(xBreaks), breaks = xBreaks) +
+    jaspGraphs::scale_y_continuous(limits = range(yBreaks), breaks = yBreaks) +
     ggplot2::ylab(gettext("Probability")) +
     ggplot2::xlab(gettext("X"))
 
@@ -152,11 +157,13 @@ plotCDF.jaspDiscreteDistribution <- function(distribution, xRange, highlightDens
     plot <- plot + jaspGraphs::geom_point(data = df, mapping = ggplot2::aes(x = x, y = y))
   }
 
+  xBreaks <- jaspGraphs::getPrettyAxisBreaks(xRange)
+  yBreaks <- jaspGraphs::getPrettyAxisBreaks(yRange)
   plot <- plot +
     jaspGraphs::themeJaspRaw(legend.position = "right") +
     jaspGraphs::geom_rangeframe() +
-    jaspGraphs::scale_x_continuous(limits = xRange) +
-    jaspGraphs::scale_y_continuous(limits = yRange) +
+    jaspGraphs::scale_x_continuous(limits = range(xBreaks), breaks = xBreaks) +
+    jaspGraphs::scale_y_continuous(limits = range(yBreaks), breaks = yBreaks) +
     ggplot2::ylab(gettext("Probability")) +
     ggplot2::xlab(gettext("X"))
 
