@@ -109,8 +109,14 @@ isFixed <- function(x) {
   isTRUE(attr(x, "fixed"))
 }
 
-pr <- function(value, label, lower = -Inf, upper = Inf) {
-  attr(value, "name")  <- paste(deparse(substitute(value), 500), collapse = "\n")
+pr <- function(value, label, name, lower = -Inf, upper = Inf) {
+  if (missing(name)) {
+    name <- paste(deparse(substitute(value), 500), collapse = "\n")
+  }
+  if (missing(label)) {
+    label <- name
+  }
+  attr(value, "name")  <- name
   attr(value, "label") <- label
   attr(value, "lower") <- lower
   attr(value, "upper") <- upper
@@ -187,6 +193,31 @@ value.jaspParameters <- function(x) {
 }
 
 #' @export
+`value<-` <- function(x, value) {
+  UseMethod("value<-")
+}
+
+#' @export
+`value<-.jaspParameter` <- function(parameter, value) {
+  if(value < lower(parameter) || value > upper(parameter)) {
+    warning("Parameter cannot be assigned a value outside of its support.")
+    return(parameter)
+  }
+
+  attributes(value) <- attributes(parameter)
+  return(value)
+}
+
+#' @export
+`value<-.jaspParameters` <- function(parameters, values) {
+  for (name in names(values)) {
+    value(parameters[[name]]) <- values[[name]]
+  }
+
+  return(parameters)
+}
+
+#' @export
 lower <- function(x) {
   UseMethod("lower")
 }
@@ -235,7 +266,12 @@ free.jaspParameters <- function(x) {
 
 
 #' @export
-setPars <- function(x, ...) {
-  UseMethod("setPars")
+summary.jaspParameters <- function(parameters) {
+  summary <- attr(parameters, "summary")
+  return(summary)
 }
 
+#' @export
+summary.jaspDistribution <- function(distribution) {
+  summary(distribution$parameters)
+}
