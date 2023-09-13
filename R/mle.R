@@ -6,7 +6,10 @@ mle <- function(distribution, data, ciLevel = 0.95) {
 #' @export
 mle.jaspDistribution <- function(distribution, data, ciLevel = 0.95) {
   pars <- free(distribution$parameters)
-  if (length(pars) == 0) return(distribution)
+  if (length(pars) == 0) {
+    warning("Distribution has no free parameters.")
+    return(distribution)
+  }
 
   objective <- function(pars) {
     value(distribution$parameters) <- pars
