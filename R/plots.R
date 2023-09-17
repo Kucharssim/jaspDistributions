@@ -1,4 +1,28 @@
+#' @name plotDistribution
+#' @rdname plotDistribution
+#'
+#' @title Plots of distributions
+#'
+#' @description
+#' Various plots of probability distribution objects.
+#'
+#' @param distribution Object of class `jaspDistribution`.
+#' @param what Character specifying what kind of plot to display.
+#' @param ... Additional arguments passed to the plotting function. Not every argument is used by every function. See details.
+#' @param xRange Range of the plot on the x-axis.
+#' @param highlightDensity Highlight density at specified points.
+#' @param highlightProbability Highlight probability within specified intervals.
+#' @param x Data.
+#' @param ci Logical (default `FALSE`): Should confidence intervals be displayed?
+#' @param ciLevel Level of the confidence interval.
+#'
+#' @returns A [ggplot2::ggplot()] object.
+#'
+NULL
+
+
 # main plotting function ----
+#' @rdname plotDistribution
 #' @export
 plot.jaspDistribution <- function(distribution, what = c("pdf", "cdf", "qf", "hist", "ecdf", "qq", "pp"), ...) {
   what <- match.arg(what)
@@ -37,7 +61,7 @@ prettyFormat <- function(x) {
 }
 
 # methods ----
-plotPdf <- function(distribution, xRange, highlightDensity = FALSE, highlightProbability = FALSE, highlightRange = NULL) {
+plotPdf <- function(distribution, xRange, highlightDensity = FALSE, highlightProbability = FALSE) {
   UseMethod("plotPdf")
 }
 
@@ -115,7 +139,7 @@ plotPdf.jaspDiscreteDistribution <- function(distribution, xRange, highlightDens
   return(plot)
 }
 
-plotCdf <- function(distribution, xRange, highlightDensity = FALSE, highlightProbability = FALSE, highlightRange = NULL) {
+plotCdf <- function(distribution, xRange, highlightDensity = FALSE, highlightProbability = FALSE) {
   UseMethod("plotCdf")
 }
 
