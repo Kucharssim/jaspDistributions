@@ -12,6 +12,26 @@ pdf.jaspDistribution <- function(distribution, x, log = FALSE) {
   return(do.call(distribution[["functions"]][["pdf"]], args))
 }
 
+#' @export
+pdf.jaspTruncatedDistribution <- function(distribution, x, log = FALSE) {
+  lpdf  <- pdf.jaspDistribution(distribution, x, log = TRUE)
+  lower <- cdf.jaspDistribution(distribution, q = distribution[["lower"]], log.p = FALSE)
+  upper <- cdf.jaspDistribution(distribution, q = distribution[["upper"]], log.p = FALSE)
+  lnorm <- log(upper - lower)
+
+  lpdf <- lpdf - lnorm
+
+  lpdf <- ifelse(
+    x < distribution[["lower"]] | x > distribution[["upper"]], -Inf, lpdf
+  )
+
+  if (log) {
+    return(lpdf)
+  } else {
+    return(exp(lpdf))
+  }
+}
+
 # cdf ----
 cdf <- function(distribution, q, lower.tail = TRUE, log.p = FALSE) {
   UseMethod("cdf")
@@ -25,6 +45,32 @@ cdf.jaspDistribution <- function(distribution, q, lower.tail = TRUE, log.p = FAL
   args[["log.p"]]      <- log.p
 
   return(do.call(distribution[["functions"]][["cdf"]], args))
+}
+
+#' @export
+cdf.jaspTruncatedDistribution <- function(distribution, q, lower.tail = TRUE, log.p = FALSE) {
+  lower <- cdf.jaspDistribution(distribution, q = distribution[["lower"]], lower.tail = TRUE, log.p = FALSE)
+  upper <- cdf.jaspDistribution(distribution, q = distribution[["upper"]], lower.tail = TRUE, log.p = FALSE)
+  pp <- cdf.jaspDistribution(distribution, q = q, lower.tail = TRUE, log.p = FALSE)
+
+  p <- ifelse(
+    pp < lower,
+    0, ifelse(
+      pp > upper,
+      1,
+      (pp - lower) / (upper - lower)
+    )
+  )
+
+  if (!lower.tail) {
+    p <- 1-p
+  }
+
+  if (log.p) {
+    return(log(p))
+  } else {
+    return(p)
+  }
 }
 
 # qf ----
@@ -42,6 +88,35 @@ qf.jaspContinuousDistribution <- function(distribution, p, lower.tail = TRUE, lo
   return(do.call(distribution[["functions"]][["qf"]], args))
 }
 
+#' @export
+qf.jaspTruncatedDistribution <- function(distribution, p, lower.tail = TRUE, log.p = FALSE) {
+  if (!log.p) {
+    p <- log(p)
+  }
+
+  if (!lower.tail) {
+    p <- log(1-exp(p))
+  }
+
+  loss <- function(x, target) {
+    p <- cdf(distribution, x, lower.tail = TRUE, log.p = TRUE)
+    sqrt((p - target)^2)
+  }
+  opt <- function(target) {
+    result <- try(optimise(f = loss, target = target, lower = distribution[["lower"]], distribution[["upper"]], maximum = FALSE))
+
+    if (jaspBase::isTryError(result)) {
+      return(NA)
+    } else {
+      result$minimum
+    }
+  }
+
+  q <- sapply(p, opt)
+
+  return(q)
+}
+
 # rng ----
 rng <- function(distribution, n) {
   UseMethod("rng")
@@ -53,6 +128,15 @@ rng.jaspDistribution <- function(distribution, n) {
   args[["n"]] <- n
 
   return(do.call(distribution[["functions"]][["rng"]], args))
+}
+
+#' @export
+rng.jaspTruncatedDistribution <- function(distribution, n) {
+  plower <- cdf.jaspDistribution(distribution, distribution[["lower"]])
+  pupper <- cdf.jaspDistribution(distribution, distribution[["upper"]])
+  rp <- runif(n, min = plower, max = pupper)
+  x <- qf(distribution, rp)
+  return(x)
 }
 
 # likelihood ----
@@ -253,3 +337,19 @@ summary.jaspParameters <- function(parameters) {
 summary.jaspDistribution <- function(distribution) {
   summary(distribution$parameters)
 }
+
+
+#' @export
+truncate <- function(distribution, lower = -Inf, upper = Inf) {
+  UseMethod("truncate")
+}
+
+#' @export
+truncate.jaspContinuousDistribution <- function(distribution, lower = -Inf, upper = Inf) {
+  distribution[["lower"]] <- lower
+  distribution[["upper"]] <- upper
+
+  class(distribution) <- c("jaspTruncatedDistribution", class(distribution))
+  return(distribution)
+}
+

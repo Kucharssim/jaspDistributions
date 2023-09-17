@@ -3,7 +3,8 @@ plot.jaspDistribution <- function(distribution, what = c("pdf", "cdf", "qf"), ..
   what <- match.arg(what)
   switch(what,
          pdf = plotPDF(distribution, ...),
-         cdf = plotCDF(distribution, ...))
+         cdf = plotCDF(distribution, ...),
+         qf  = plotCDF(distribution, ...) + ggplot2::coord_flip())
 }
 
 # plotting functions
@@ -35,7 +36,7 @@ plotPDF.jaspContinuousDistribution <- function(distribution, xRange, highlightDe
     }
   }
 
-  x  <- sort(c(x, seq(xRange[1], xRange[2], length.out = 101)))
+  x  <- seq(xRange[1], xRange[2], length.out = 101)
   df <- data.frame(x = x, y = pdf(distribution, x))
   yRange <- range(c(yRange, df$y))
   plot <- plot + plotCurve(data = df)
