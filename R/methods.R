@@ -32,6 +32,28 @@ pdf.jaspTruncatedDistribution <- function(distribution, x, log = FALSE) {
   }
 }
 
+#' @export
+pdf.jaspCensoredDistribution <- function(distribution, x, log = FALSE) {
+  out <- sapply(x, function(xx) {
+    if (xx < distribution[["lower"]]) {
+      return(0)
+    } else if (xx == distribution[["lower"]]) {
+      return(cdf.jaspDistribution(distribution, xx))
+    } else if (xx < distribution[["upper"]]) {
+      return(pdf.jaspDistribution(distribution, xx))
+    } else if (xx == distribution[["upper"]]) {
+      return(cdf.jaspDistribution(distribution, xx, lower.tail = FALSE))
+    } else {
+      return(0)
+    }
+  })
+
+  if(log)
+    out <- log(out)
+
+  return(out)
+}
+
 # cdf ----
 cdf <- function(distribution, q, lower.tail = TRUE, log.p = FALSE) {
   UseMethod("cdf")
@@ -71,6 +93,29 @@ cdf.jaspTruncatedDistribution <- function(distribution, q, lower.tail = TRUE, lo
   } else {
     return(p)
   }
+}
+
+#' @export
+cdf.jaspCensoredDistribution <- function(distribution, q, lower.tail = TRUE, log.p = FALSE) {
+  out <- sapply(q, function(qq) {
+    if (qq < distribution[["lower"]]) {
+      return(0)
+    } else if (qq < distribution[["lower"]]) {
+      return(cdf.jaspDistribution(distribution, qq))
+    } else {
+      return(1)
+    }
+  })
+
+  if (lower.tail) {
+    out <- 1-out
+  }
+
+  if (log.p) {
+    out <- log(p)
+  }
+
+  return(out)
 }
 
 # qf ----
@@ -117,6 +162,22 @@ qf.jaspTruncatedDistribution <- function(distribution, p, lower.tail = TRUE, log
   return(q)
 }
 
+#' @export
+qf <- jaspCensoredDistribution <- function(distribution, p, lower.tail = TRUE, log.p = FALSE) {
+  out <- sapply(p, function(pp) {
+    qq <- qf.jaspContinuousDistribution(distribution, p, lower.tail = lower.tail, log.p = log.p)
+    if(qq < distribution[["lower"]]) {
+      qq <- distribution[["lower"]]
+    } else if (qq > distribution[["upper"]]) {
+      qq <- distribution[["upper"]]
+    }
+
+    return(qq)
+  })
+
+  return(out)
+}
+
 # rng ----
 rng <- function(distribution, n) {
   UseMethod("rng")
@@ -136,6 +197,23 @@ rng.jaspTruncatedDistribution <- function(distribution, n) {
   pupper <- cdf.jaspDistribution(distribution, distribution[["upper"]])
   rp <- runif(n, min = plower, max = pupper)
   x <- qf(distribution, rp)
+  return(x)
+}
+
+#' @export
+rng.jaspCensoredDistribution <- function(distribution, n) {
+  x <- rng.jaspDistribution(distribution, n)
+
+  x <- sapply(x, function(xx) {
+    if (xx < distribution[["lower"]]) {
+      return(distribution[["lower"]])
+    } else if (xx > distribution[["upper"]]) {
+      return(distribution[["upper"]])
+    } else {
+      return(xx)
+    }
+  })
+
   return(x)
 }
 
@@ -353,3 +431,16 @@ truncate.jaspContinuousDistribution <- function(distribution, lower = -Inf, uppe
   return(distribution)
 }
 
+#' @export
+censor <- function(distribution, lower = -Inf, upper = Inf) {
+  UseMethod("censor")
+}
+
+#' @export
+censor.jaspContinuousDistribution <- function(distribution, lower = -Inf, upper = Inf) {
+  distribution[["lower"]] <- lower
+  distribution[["upper"]] <- upper
+
+  class(distribution) <- c("jaspCensoredDistribution", class(distribution))
+  return(distribution)
+}
