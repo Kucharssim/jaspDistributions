@@ -119,7 +119,7 @@ cdf.jaspCensoredDistribution <- function(distribution, q, lower.tail = TRUE, log
 }
 
 # qf ----
-qf <- function(distribution, q, lower.tail = TRUE, log.p = FALSE) {
+qf <- function(distribution, p, lower.tail = TRUE, log.p = FALSE) {
   UseMethod("qf")
 }
 
@@ -163,9 +163,9 @@ qf.jaspTruncatedDistribution <- function(distribution, p, lower.tail = TRUE, log
 }
 
 #' @export
-qf <- jaspCensoredDistribution <- function(distribution, p, lower.tail = TRUE, log.p = FALSE) {
+qf.jaspCensoredDistribution <- function(distribution, p, lower.tail = TRUE, log.p = FALSE) {
   out <- sapply(p, function(pp) {
-    qq <- qf.jaspContinuousDistribution(distribution, p, lower.tail = lower.tail, log.p = log.p)
+    qq <- qf.jaspContinuousDistribution(distribution, pp, lower.tail = lower.tail, log.p = log.p)
     if(qq < distribution[["lower"]]) {
       qq <- distribution[["lower"]]
     } else if (qq > distribution[["upper"]]) {
