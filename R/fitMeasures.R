@@ -19,12 +19,22 @@ fitMeasures <- function(distribution, data, estimated = FALSE) {
 
 #' @rdname fitMeasures
 #' @export
-fitMeasures.jaspDistribution <- function(distribution, data, estimated = FALSE) {
+fitMeasures.jaspContinuousDistribution <- function(distribution, data, estimated = FALSE) {
   ad  <- andersonDarling  (distribution, data, estimated)
   cvm <- cramerVonMises   (distribution, data, estimated)
   ks  <- kolmogorovSmirnov(distribution, data)
   result <- list(
     absolute = rbind(ad, cvm, ks) |> as.data.frame(),
+    relative = c(aic = AIC(distribution, data), bic = BIC(distribution, data))
+  )
+  return(result)
+}
+
+#' @rdname fitMeasures
+#' @export
+fitMeasures.jaspDiscreteDistribution <- function(distribution, data, estimated = FALSE) {
+  result <- list(
+    absolute = chiSquare(distribution, data),
     relative = c(aic = AIC(distribution, data), bic = BIC(distribution, data))
   )
   return(result)
@@ -71,3 +81,12 @@ kolmogorovSmirnov <- function(distribution, data) {
   return(data.frame(test="ks", statistic=unname(result$statistic), pvalue=result$p.value))
 }
 
+
+#' @rdname fitMeasures
+#' @export
+chiSquare <- function(distribution, data) {
+  tb <- table(data)
+  xx <- as.numeric(names(tb))
+  result <- chisq.test(x = tb, p = pdf(distribution, xx), rescale.p = TRUE)
+  return(data.frame(test="chi", statistic=unname(result$statistic), pvalue=result$p.value))
+}

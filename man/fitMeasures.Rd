@@ -2,15 +2,19 @@
 % Please edit documentation in R/fitMeasures.R
 \name{fitMeasures}
 \alias{fitMeasures}
-\alias{fitMeasures.jaspDistribution}
+\alias{fitMeasures.jaspContinuousDistribution}
+\alias{fitMeasures.jaspDiscreteDistribution}
 \alias{AIC.jaspDistribution}
 \alias{BIC.jaspDistribution}
 \alias{andersonDarling}
 \alias{cramerVonMises}
 \alias{kolmogorovSmirnov}
+\alias{chiSquare}
 \title{fitMeasures measures of distributions}
 \usage{
-\method{fitMeasures}{jaspDistribution}(distribution, data, estimated = FALSE)
+\method{fitMeasures}{jaspContinuousDistribution}(distribution, data, estimated = FALSE)
+
+\method{fitMeasures}{jaspDiscreteDistribution}(distribution, data, estimated = FALSE)
 
 \method{AIC}{jaspDistribution}(distribution, data)
 
@@ -21,6 +25,8 @@ andersonDarling(distribution, data, estimated = FALSE)
 cramerVonMises(distribution, data, estimated = FALSE)
 
 kolmogorovSmirnov(distribution, data)
+
+chiSquare(distribution, data)
 }
 \arguments{
 \item{distribution}{Object of class `jaspDistribution`.}
