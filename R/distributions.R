@@ -12,13 +12,26 @@ normal <- function(mu, sigma, sigma2, tau, kappa) {
 
   result <- list()
   result[["name"]] <- "Normal"
-  result[["parameters"]] <- switch(
+
+  par1 <- pr(mu, name = gettext("mean"), unicode = "\u03BC", latex = "\\mu", support = real())
+  sp <- real(lower = 0, inclusive = NULL)
+  par2 <- switch(
     parametrization,
-    "sigma"  = pars(pr(mu, "\u03BC"), pr(sigma,  "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "sigma")       ),
-    "sigma2" = pars(pr(mu, "\u03BC"), pr(sigma2, "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "sqrt(sigma2)")),
-    "tau"    = pars(pr(mu, "\u03BC"), pr(tau,    "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "1/sqrt(tau)") ),
-    "kappa"  = pars(pr(mu, "\u03BC"), pr(kappa,  "\u03C3", lower = 0), transformations = c(mean = "mu", sd = "1/kappa")     )
+    "sigma"  = pr(sigma,  name = gettext("standard deviation"),       unicode = "\u03C3",       latex = "\\sigma",   support = sp),
+    "sigma2" = pr(sigma2, name = gettext("variance"),                 unicode = "\u03C3\u00B2", latex = "\\sigma^2", support = sp),
+    "tau"    = pr(tau,    name = gettext("precision"),                unicode = "\u03C4",       latex = "\\tau",     support = sp),
+    "kappa"  = pr(kappa,  name = gettext("square root of precision"), unicode = "\u03BA",       latex = "\\kappa",   support = sp)
   )
+
+  transformations <- switch(
+    parametrization,
+    "sigma"  = c(mean = "mu", sd = "sigma"),
+    "sigma2" = c(mean = "mu", sd = "sqrt(sigma2)"),
+    "tau"    = c(mean = "mu", sd = "1/sqrt(tau)"),
+    "kappa"  = c(mean = "mu", sd = "1/kappa")
+  )
+  result[["parameters"]] <- pars(par1, par2, transformations = transformations)
+  result[["support"]] <- real()
   result[["functions"]] <- list(pdf = dnorm, cdf = pnorm, qf = qnorm, rng = rnorm)
 
   class(result) <- c("jaspNormal", "jaspContinuousDistribution", "jaspDistribution")

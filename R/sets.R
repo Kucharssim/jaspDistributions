@@ -17,10 +17,6 @@
 #' @keywords internal
 NULL
 
-set <- function() {
-
-}
-
 #' @rdname sets
 #' @export
 real <- function(lower=-Inf, upper=Inf, inclusive = c("lower", "upper")) {

@@ -234,11 +234,28 @@ likelihood.jaspDistribution <- function(distribution, x, log = FALSE, scaling = 
   }
 }
 
+# printing ----
+#' @export
+summary.jaspDistribution <- function(distribution, mode = c("unicode", "latex")) {
+  out <- list(
+    parameters = summary(distribution$parameters, mode = mode),
+    support = summary(distribution$support, mode = mode)
+  )
+
+  return(out)
+}
+
 #' @export
 print.jaspDistribution <- function(distribution) {
-  cat(distribution[["name"]], " distribution\n")
+  header <- paste(distribution[["name"]], "distribution")
+  cat(header, "\n")
+  cat(rep("=", nchar(header)) |> paste(collapse=""), "\n")
   print(distribution[["parameters"]])
+  cat("\n", "Support")
+  cat("\n", "-------\n")
+  print(distribution[["support"]])
 }
+
 # parameters ----
 fixed <- function(x) {
   attr(x, "fixed") <- TRUE
@@ -249,35 +266,54 @@ isFixed <- function(x) {
   isTRUE(attr(x, "fixed"))
 }
 
-pr <- function(value, label, name, lower = -Inf, upper = Inf) {
+pr <- function(value, name, unicode, latex, support) {
+  stopifnot(contains(support, value))
+  key <- paste(deparse(substitute(value), 500), collapse = "\n")
   if (missing(name)) {
-    name <- paste(deparse(substitute(value), 500), collapse = "\n")
+    name <- key
   }
-  if (missing(label)) {
-    label <- name
+  if (missing(unicode)) {
+    unicode <- name
   }
-  attr(value, "name")  <- name
-  attr(value, "label") <- label
-  attr(value, "lower") <- lower
-  attr(value, "upper") <- upper
-  attr(value, "fixed") <- isFixed(value)
+  if (missing(latex)) {
+    latex <- name
+  }
+  attr(value, "key")     <- key
+  attr(value, "name")    <- name
+  attr(value, "unicode") <- unicode
+  attr(value, "latex")   <- latex
+  attr(value, "support") <- support
+  attr(value, "fixed")   <- isFixed(value)
 
   class(value) <- "jaspParameter"
   return(value)
 }
 
 #' @export
+summary.jaspParameter <- function(parameter, mode = c("unicode", "latex")) {
+  attrs <- attributes(parameter)
+  mode <- match.arg(mode)
+  symbol <- if(mode == "unicode") attrs[["unicode"]] else attrs[["latex"]]
+
+  out <- data.frame(
+    name    = attrs[["name"]],
+    unicode = attrs[["unicode"]],
+    latex   = attrs[["latex"]],
+    value   = value(parameter),
+    support = attrs[["support"]] |> summary(symbol = symbol, mode = mode),
+    fixed   = isFixed(parameter)
+  )
+  return(out)
+}
+
+#' @export
 print.jaspParameter <- function(parameter) {
-  cat(attr(parameter, "name"), "\n")
-  cat(attr(parameter, "label"), "=", parameter, "\n")
-  cat("fixed:", attr(parameter, "fixed"), "\n")
-  cat("lower:", attr(parameter, "lower"), "\n")
-  cat("upper:", attr(parameter, "upper"), "\n\n")
+  print(summary(parameter))
 }
 
 pars <- function(..., transformations = NULL) {
   parameters <- list(...)
-  names(parameters) <- vapply(parameters, \(p) attr(p, "name"), character(1))
+  names(parameters) <- vapply(parameters, \(p) attr(p, "key"), character(1))
   attr(parameters, "transformations") <- transformations
 
   class(parameters) <- "jaspParameters"
@@ -285,16 +321,31 @@ pars <- function(..., transformations = NULL) {
 }
 
 #' @export
-print.jaspParameters <- function(parameters) {
-  cat("Parameters\n")
-  cat("==========\n")
-  lapply(parameters, print)
+summary.jaspParameters <- function(parameters, mode = c("unicode", "latex")) {
+  pars <- lapply(parameters, summary, mode)
+  pars <- do.call(rbind, pars)
 
   transformations <- attr(parameters, "transformations")
-  if(!is.null(transformations)) {
-    cat("Transformations\n")
-    print(data.frame(definition = attr(parameters, "transformations"), value = unlist(transform(parameters))))
-    cat("\n")
+  if (!is.null(transformations)) {
+    transf <- data.frame(definition = attr(parameters, "transformations"), value = unlist(transform(parameters)))
+  } else {
+    transf <- NULL
+  }
+  out <- list(parameters = pars, transformations = transf)
+
+  return(out)
+}
+
+#' @export
+print.jaspParameters <- function(parameters) {
+  x <- summary(parameters)
+  cat("","Parameters\n")
+  cat("","----------\n")
+  print(x$parameters)
+
+  if(!is.null(x$transformations)) {
+    cat("\n", "Transformations\n")
+    print(x$transformations)
   }
 }
 
@@ -405,16 +456,6 @@ free.jaspParameters <- function(x) {
 }
 
 
-#' @export
-summary.jaspParameters <- function(parameters) {
-  summary <- attr(parameters, "summary")
-  return(summary)
-}
-
-#' @export
-summary.jaspDistribution <- function(distribution) {
-  summary(distribution$parameters)
-}
 
 
 #' @export
