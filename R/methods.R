@@ -444,3 +444,5 @@ censor.jaspContinuousDistribution <- function(distribution, lower = -Inf, upper 
   class(distribution) <- c("jaspCensoredDistribution", class(distribution))
   return(distribution)
 }
+
+
