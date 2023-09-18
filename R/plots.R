@@ -24,16 +24,16 @@ NULL
 # main plotting function ----
 #' @rdname plotDistribution
 #' @export
-plot.jaspDistribution <- function(distribution, what = c("pdf", "cdf", "qf", "hist", "ecdf", "qq", "pp"), ...) {
+plot.jaspDistribution <- function(distribution, what = c("pdf", "cdf", "qf", "histogram", "ecdf", "qq", "pp"), ...) {
   what <- match.arg(what)
   switch(what,
-         pdf  = plotPdf (distribution, ...),
-         cdf  = plotCdf (distribution, ...),
-         qf   = plotCdf (distribution, ...) + ggplot2::coord_flip(),
-         hist = plotHist(distribution, ...),
-         ecdf = plotEcdf(distribution, ...),
-         qq   = plotQq  (distribution, ...),
-         pp   = plotPp  (distribution, ...))
+         pdf       = plotPdf (distribution, ...),
+         cdf       = plotCdf (distribution, ...),
+         qf        = plotCdf (distribution, ...) + ggplot2::coord_flip(),
+         histogram = plotHist(distribution, ...),
+         ecdf      = plotEcdf(distribution, ...),
+         qq        = plotQq  (distribution, ...),
+         pp        = plotPp  (distribution, ...))
 }
 
 # helper functions ----

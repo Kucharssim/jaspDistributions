@@ -537,3 +537,8 @@ moments.jaspDistribution <- function(distribution) {
 
   return(out)
 }
+
+#' @export
+jaspDependencies <- function(distribution) {
+  UseMethod("jaspDependencies")
+}
