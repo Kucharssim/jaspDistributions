@@ -239,7 +239,8 @@ likelihood.jaspDistribution <- function(distribution, x, log = FALSE, scaling = 
 summary.jaspDistribution <- function(distribution, mode = c("unicode", "latex")) {
   out <- list(
     parameters = summary(distribution$parameters, mode = mode),
-    support = summary(distribution$support, mode = mode)
+    support = summary(distribution$support, mode = mode),
+    moments = moments(distribution)
   )
 
   return(out)
@@ -251,9 +252,14 @@ print.jaspDistribution <- function(distribution) {
   cat(header, "\n")
   cat(rep("=", nchar(header)) |> paste(collapse=""), "\n")
   print(distribution[["parameters"]])
+
   cat("\n", "Support")
   cat("\n", "-------\n")
   print(distribution[["support"]])
+
+  cat("\n", "Moments")
+  cat("\n", "-------\n")
+  print(moments(distribution))
 }
 
 # parameters ----
@@ -486,4 +492,48 @@ censor.jaspContinuousDistribution <- function(distribution, lower = -Inf, upper 
   return(distribution)
 }
 
+#' @export
+expectation <- function(distribution) {
+  UseMethod("expectation")
+}
 
+#' @export
+expectation.jaspDistribution <- function(distribution) {
+  pars <- transform(distribution[["parameters"]])
+  env <- list2env(pars)
+  out <- eval(distribution[["expectation"]][["expression"]], envir = env)
+  out <- as.numeric(out)
+  return(out)
+}
+
+
+#' @export
+variance <- function(distribution) {
+  UseMethod("variance")
+}
+
+#' @export
+variance.jaspDistribution <- function(distribution) {
+  pars <- transform(distribution[["parameters"]])
+  env <- list2env(pars)
+  out <- eval(distribution[["variance"]][["expression"]], envir = env)
+  out <- as.numeric(out)
+  return(out)
+}
+
+#' @export
+moments <- function(distribution) {
+  UseMethod("moments")
+}
+
+#' @export
+moments.jaspDistribution <- function(distribution) {
+  out <- data.frame(
+    moment     = c(gettext("Expectation"), gettext("Variance")),
+    symbol     = c("\\mathrm{E}(X)", "\\mathrm{Var}(X)"),
+    expression = c(distribution[["expectation"]][["latex"]], distribution[["variance"]][["latex"]]),
+    value      = c(expectation(distribution), variance(distribution))
+    )
+
+  return(out)
+}

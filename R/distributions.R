@@ -30,8 +30,17 @@ normal <- function(mu, sigma, sigma2, tau, kappa) {
     "tau"    = c(mean = "mu", sd = "1/sqrt(tau)"),
     "kappa"  = c(mean = "mu", sd = "1/kappa")
   )
+
   result[["parameters"]] <- pars(par1, par2, transformations = transformations)
   result[["support"]] <- real()
+  result[["expectation"]] <- c(expression=expression(mean), latex="\\mu")
+  result[["variance"]] <- switch(
+    parametrization,
+    "sigma"  = c(expression=expression(sd^2), latex = "\\sigma^2"   ),
+    "sigma2" = c(expression=expression(sd^2), latex = "\\sigma^2"   ),
+    "tau"    = c(expression=expression(sd^2), latex = "\\tau^{-1}"  ),
+    "kappa"  = c(expression=expression(sd^2), latex = "\\kappa^{-2}")
+  )
   result[["functions"]] <- list(pdf = dnorm, cdf = pnorm, qf = qnorm, rng = rnorm)
 
   class(result) <- c("jaspNormal", "jaspContinuousDistribution", "jaspDistribution")
