@@ -7,7 +7,7 @@
 \usage{
 \method{plot}{jaspDistribution}(
   distribution,
-  what = c("pdf", "cdf", "qf", "hist", "ecdf", "qq", "pp"),
+  what = c("pdf", "cdf", "qf", "histogram", "ecdf", "qq", "pp"),
   ...
 )
 }

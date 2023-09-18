@@ -7,6 +7,7 @@ jaspCommonDistribution.jaspContinuousDistribution <- function(distribution, jasp
   for(what in c("pdf", "cdf", "qf")) {
     jaspTheoreticalPlot(distribution, jaspResults, options, what = what)
   }
+  jaspDistributionTable(distribution, jaspResults, options)
   data <- jaspGenerateData(distribution, jaspResults, dataset, options)
   jaspDisplayData(distribution, jaspResults, data, options)
 }
@@ -39,6 +40,19 @@ jaspParametersSupportMoments <- function(distribution, jaspResults, options) {
     colTitles = c(gettext("Moment"), gettext("Symbol"), gettext("Expression"), gettext("Value")),
     data = distSummary[["moments"]]
   )
+}
+
+jaspDistributionTable <- function(distribution, jaspResults, options) {
+  UseMethod("jaspDistributionTable")
+}
+
+jaspDistributionTable.jaspContinuousDistribution <- function(distribution, jaspResults, options) {
+  x <- seq(-3, 3, by = 0.5)
+  df <- data.frame(x = x, pdf = pdf(distribution, x), cdf = cdf(distribution, x))
+  jaspResults[["table"]] <- jaspBase::createJaspTable(
+    title = gettext("Distribution table"),
+    data = df,
+    colTitles = c("X", gettext("PDF"), gettext("CDF")))
 }
 
 jaspTheoreticalPlot <- function(distribution, jaspResults, options, what = c("pdf", "cdf", "qf")) {
