@@ -7,12 +7,19 @@ Description
 	icon:			"discoverdistributions-distributions.svg"
 	description: 	qsTr("Visualize distributions and fit them to data")
 	requiresData:	false
-	hasWrappers	: true
+	hasWrappers	:	true
+	preloadData:	true
 
 	GroupTitle
 	{
 		title: 	qsTr("Continuous")
 		icon: 	"discoverdistributions-continuousDist.svg"
+	}
+
+	Analysis
+	{
+		title: qsTr("Normal Distribution")
+		func: "NormalDistribution"
 	}
 
 	Analysis

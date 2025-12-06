@@ -10,6 +10,7 @@ Description: Visualize distributions and fit them to data
 License: GPL (>= 2)
 Encoding: UTF-8
 Imports:
+  DistributionS7,
   car,
   fitdistrplus,
   ggplot2,
@@ -20,7 +21,10 @@ Imports:
   MASS,
   nortest,
   sgt,
-  sn
+  sn,
+  S7
 Remotes:
+  Kucharssim/DistributionS7,
   jasp-stats/jaspBase,
   jasp-stats/jaspGraphs
+RoxygenNote: 7.3.2
