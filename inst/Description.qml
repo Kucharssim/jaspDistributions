@@ -7,7 +7,8 @@ Description
 	icon:			"discoverdistributions-distributions.svg"
 	description: 	qsTr("Visualize distributions and fit them to data")
 	requiresData:	false
-	hasWrappers	: true
+	hasWrappers	:	true
+	preloadData:	true
 
 	// Setting directly the useSubMenus property would crash in JASP 0.96.0, since this setting does not exist in this version.
 	// Instead set it via jasvaScript: this will just add a warning in the log file if the property does not exist.
@@ -17,6 +18,12 @@ Description
 	{
 		title: 	qsTr("Continuous")
 		icon: 	"discoverdistributions-continuousDist.svg"
+	}
+
+	Analysis
+	{
+		title: qsTr("Normal Distribution")
+		func: "NormalDistribution"
 	}
 
 	Analysis
