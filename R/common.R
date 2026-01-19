@@ -198,31 +198,33 @@ S7::method(dataDescriptives, DistributionS7::DistributionContinuous) <- function
 
     container[["dataDescriptives"]] <- table
 
-    table$setData(
-      list(
-        variable   = options[["variable"]],
-        sampleSize = length(variable),
-        mean       = mean(variable),
-        var        = var(variable),
-        sd         = sd(variable),
-        min        = min(variable),
-        quantile25 = quantile(variable, .25),
-        median     = median(variable),
-        quantile75 = quantile(variable, .75),
-        max        = max(variable)
+    if (!is.null(variable))
+      table$setData(
+        list(
+          variable   = options[["variable"]],
+          sampleSize = length(variable),
+          mean       = mean(variable),
+          var        = var(variable),
+          sd         = sd(variable),
+          min        = min(variable),
+          quantile25 = quantile(variable, .25),
+          median     = median(variable),
+          quantile75 = quantile(variable, .75),
+          max        = max(variable)
+        )
       )
-    )
   }
 
   if (options[["dataHistogram"]] && is.null(container[["dataHistogram"]])) {
     plot <- createJaspPlot(
-      plot = gettext("Histogram"),
+      title = gettext("Histogram"),
       dependencies = "dataHistogram"
     )
 
     container[["dataHistogram"]] <- plot
 
-    plot$plotObject <- jaspGraphs::jaspHistogram(variable, xName = options[["variable"]], density=TRUE)
+    if (!is.null(variable))
+      plot$plotObject <- jaspGraphs::jaspHistogram(variable, xName = options[["variable"]], density=TRUE)
   }
 
 }
@@ -380,8 +382,8 @@ S7::method(informationCriteria, DistributionS7::Distribution) <- function(
   )
   jaspResults[["informationCriteria"]] <- table
 
-  table$addColumnInfo(name = "n_obs",   title = gettext("n"),         type="number")
-  table$addColumnInfo(name = "n_par",   title = gettext("df"),        type="number")
+  table$addColumnInfo(name = "n_obs",   title = gettext("n"),         type="integer")
+  table$addColumnInfo(name = "n_par",   title = gettext("df"),        type="integer")
   table$addColumnInfo(name = "log_lik", title = gettext("Log. lik."), type="number")
   table$addColumnInfo(name = "aic",     title = gettext("AIC"),       type="number")
   table$addColumnInfo(name = "bic",     title = gettext("BIC"),       type="number")
